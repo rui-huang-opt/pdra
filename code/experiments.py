@@ -390,7 +390,6 @@ if __name__ == '__main__':
         Delta = 0.1
 
         b_mat_bar = resource_perturbation(epsilon, delta, Delta, M, b_mat)
-        print(b_mat_bar)
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         Nodes = gen_nodes(experiment, connections, T, di, step_size, f, a_mat, b_mat_bar, x_lab)
