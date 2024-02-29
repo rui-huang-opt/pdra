@@ -30,11 +30,11 @@ class Node(threading.Thread):
         self.__in_edges.append(edge)
         self.__in_degree += 1
 
-    def remove_out_edge(self, edge: 'Edge'):
+    def remove_out_edge(self, edge: 'Edge') -> None:
         self.__out_edges.remove(edge)
         self.__out_degree -= 1
 
-    def remove_in_edge(self, edge: 'Edge'):
+    def remove_in_edge(self, edge: 'Edge') -> None:
         self.__in_edges.remove(edge)
         self.__in_degree -= 1
 
@@ -52,7 +52,6 @@ class Node(threading.Thread):
 
 class Edge(queue.Queue):
     def __init__(self, from_node: 'Node', to_node: 'Node', weight: int or float, maxsize=1):
-        super().__init__(maxsize=maxsize)
         self.__is_connected = False
 
         self.__from_node = from_node
@@ -61,8 +60,10 @@ class Edge(queue.Queue):
 
         self.__weight = weight
 
+        super().__init__(maxsize=maxsize)
+
     @property
-    def is_connected(self):
+    def is_connected(self) -> bool:
         return self.__is_connected
 
     @property
@@ -76,7 +77,7 @@ class Edge(queue.Queue):
     def send(self, data: np.ndarray) -> None:
         self.put(self.__weight * data)
 
-    def connect(self):
+    def connect(self) -> None:
         if not self.__is_connected:
             self.__from_node.append_out_edge(self)
             self.__to_node.append_in_edge(self)

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     # Experiment - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    experiment = '2'
+    experiment = '1'
 
     if experiment == '1':
         # Parameters - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -17,7 +17,7 @@ if __name__ == '__main__':
         nodes = [f'{i}' for i in range(1, N + 1)]
 
         # The results of the experiment - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        iter_num = np.arange(1, T + 1)
+        iterations = np.arange(1, T + 1)
 
         # Convergence of the algorithm
         fig1, ax1 = plt.subplots(1, 1)
@@ -25,11 +25,11 @@ if __name__ == '__main__':
 
         err = pd.read_excel(r'..\data\experiment1\err.xlsx').values.reshape(-1)
 
-        ax1.semilogy(iter_num, err, label='$F(x_k)-F(x^*)$')
+        ax1.semilogy(iterations, err, label='$F(x_k)-F(x^*)$')
 
         ax1ins = ax1.inset_axes((0.4, 0.4, 0.5, 0.3))
         ax1ins.set_ylim(0, 0.005)
-        ax1ins.step(iter_num[1800:1999], err[1800:1999])
+        ax1ins.step(iterations[1800:1999], err[1800:1999])
 
         ax1.legend(loc='upper right')
 
@@ -46,9 +46,9 @@ if __name__ == '__main__':
 
             for m in range(M):
                 if m == 1:
-                    ax2.step(iter_num, c_iter[m, :], color=color[node], label='node ' + node)
+                    ax2.step(iterations, c_iter[m, :], color=color[node], label='node ' + node)
                 else:
-                    ax2.step(iter_num, c_iter[m, :], color=color[node])
+                    ax2.step(iterations, c_iter[m, :], color=color[node])
 
         ax2.legend(loc='upper right')
 
@@ -61,11 +61,11 @@ if __name__ == '__main__':
         cons_iter = pd.read_excel(r'..\data\experiment1\cons_iter.xlsx').values
 
         for m in range(M):
-            ax3.step(iter_num, cons_iter[m, :], label=f'constraint {m + 1}')
+            ax3.step(iterations, cons_iter[m, :], label=f'constraint {m + 1}')
 
         ax3ins = ax3.inset_axes((0.3, 0.3, 0.5, 0.5))
         for m in range(M):
-            ax3ins.step(iter_num[1800:1999], cons_iter[m, 1800:1999])
+            ax3ins.step(iterations[1800:1999], cons_iter[m, 1800:1999])
 
         ax3.legend(loc='lower right')
 
@@ -84,7 +84,7 @@ if __name__ == '__main__':
         nodes = [f'{i}' for i in range(1, N + 1)]
 
         # The results of the experiment - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        iter_num = np.arange(1, T + 1)
+        iterations = np.arange(1, T + 1)
 
         # Convergence of the algorithm
         fig1, ax1 = plt.subplots(1, 1)
@@ -92,11 +92,11 @@ if __name__ == '__main__':
 
         err = pd.read_excel(r'..\data\experiment2\err.xlsx').values.reshape(-1)
 
-        ax1.semilogy(iter_num, err, label='$P(x^*)-P(x_k)$')
+        ax1.semilogy(iterations, err, label='$P(x^*)-P(x_k)$')
 
         ax1ins = ax1.inset_axes((0.3, 0.35, 0.5, 0.5))
         ax1ins.set_ylim(5, 10)
-        ax1ins.step(iter_num[2500:2999], err[2500:2999])
+        ax1ins.step(iterations[2500:2999], err[2500:2999])
 
         ax1.legend(loc='upper right')
 
@@ -113,8 +113,8 @@ if __name__ == '__main__':
             c_iter = pd.read_excel(r'..\data\experiment2\node' + node + r'\c_iter.xlsx').values
 
             for m in range(M):
-                ax2.step(iter_num, c_iter[m, :])
-                ax2ins.step(iter_num[2950:2999], c_iter[m, 2950:2999])
+                ax2.step(iterations, c_iter[m, :])
+                ax2ins.step(iterations[2950:2999], c_iter[m, 2950:2999])
 
         # plt.savefig(r"..\manuscript\src\figures\fig4_b.png", dpi=300, bbox_inches='tight')
 
@@ -125,11 +125,11 @@ if __name__ == '__main__':
         cons_iter = pd.read_excel(r'..\data\experiment2\cons_iter.xlsx').values
 
         for m in range(M):
-            ax3.step(iter_num, cons_iter[m, :], label=f'material {m + 1}')
+            ax3.step(iterations, cons_iter[m, :], label=f'material {m + 1}')
 
         ax3ins = ax3.inset_axes((0.3, 0.3, 0.5, 0.5))
         for m in range(M):
-            ax3ins.step(iter_num[2500:2999], cons_iter[m, 2500:2999])
+            ax3ins.step(iterations[2500:2999], cons_iter[m, 2500:2999])
 
         ax3.legend(loc='lower right')
 

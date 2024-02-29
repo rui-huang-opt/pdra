@@ -7,18 +7,19 @@ import dissys
 import trunclap as tl
 
 
+# The common parts of the two modes of our algorithm
 class NodePDRABase(dissys.Node):
-    def __init__(self, iterations, dim, gamma, f_i, a_i: np.ndarray, b_i):
+    def __init__(self, iteration_number, dimension, gamma, f_i, a_i: np.ndarray, b_i):
         super().__init__()
-        # Iteration numbers
-        self.T = iterations
+        # Iteration number
+        self.T = iteration_number
 
         # Local decision variables
-        self.x_i = cp.Variable(dim)
+        self.x_i = cp.Variable(dimension)
         # Array for storing the iterations of the local decision variables
-        self.x_iter = np.zeros((dim, self.T))
+        self.x_iter = np.zeros((dimension, self.T))
 
-        # Step size for accelerated gradient method
+        # Step size for accelerated gradient descent or the step length for subgradient method
         self.gamma = gamma
 
         # Local objective function and constraint coefficient matrix
@@ -31,7 +32,7 @@ class NodePDRABase(dissys.Node):
         # The number of local constraints
         self.cons_num = a_i.shape[0]
 
-        # Only node 1 can receive resource
+        # Only node 1 can receive resource, other nodes set it to 0 by default
         self.b_i = b_i if b_i is not None else np.zeros(self.cons_num)
 
         # Auxiliary variables y and Lagrange multipliers c
@@ -41,20 +42,22 @@ class NodePDRABase(dissys.Node):
         self.y_iter = np.zeros((self.cons_num, self.T))
         self.c_iter = np.zeros((self.cons_num, self.T))
 
-        # l_i @ y, where l_i is the ith row of laplacian matrix L
+        # l_i @ y, where l_i is the ith row of laplacian matrix L,
+        # it is set as a Parameter class in cvxpy for it changes during every iteration
         self.li_y = cp.Parameter(self.cons_num)
 
 
+# Experiment 1
 class NodeAGD(NodePDRABase):
-    def __init__(self, iterations, dim, gamma, f_i, a_i, b_i=None):
-        super().__init__(iterations, dim, gamma, f_i, a_i, b_i)
+    def __init__(self, iteration_number, dimension, gamma, f_i, a_i, b_i=None):
+        super().__init__(iteration_number, dimension, gamma, f_i, a_i, b_i)
 
         # Auxiliary variables in accelerated gradient method
         self.w = np.zeros(self.cons_num)
         self.theta = 1
 
         # Model the local problem
-        cons = [cp.constraints.NonPos(self.a_i @ self.x_i + self.li_y - self.b_i)]
+        cons = [self.a_i @ self.x_i + self.li_y - self.b_i <= 0]
         self.prob = cp.Problem(cp.Minimize(self.f_i(self.x_i)), cons)
 
     def run(self) -> None:
@@ -93,13 +96,14 @@ class NodeAGD(NodePDRABase):
             self.y = self.w + ((theta_temp - 1) / self.theta) * (self.w - w_temp)
 
 
+# Experiment 2
 class NodeSG(NodePDRABase):
-    def __init__(self, iterations, dim, gamma, f_i, a_i, x_upper_i, b_i=None):
-        super().__init__(iterations, dim, gamma, f_i, a_i, b_i)
+    def __init__(self, iteration_number, dimension, gamma, f_i, a_i, x_upper_i, b_i=None):
+        super().__init__(iteration_number, dimension, gamma, f_i, a_i, b_i)
 
         # Model the local problem
-        cons = [cp.constraints.NonPos(self.a_i @ self.x_i + self.li_y - self.b_i),
-                cp.constraints.NonPos(self.x_i - x_upper_i)]
+        cons = [self.a_i @ self.x_i + self.li_y - self.b_i <= 0,
+                self.x_i - x_upper_i <= 0]
         self.prob = cp.Problem(cp.Minimize(self.f_i(self.x_i)), cons)
 
     def run(self) -> None:
@@ -141,11 +145,9 @@ def resource_perturbation(eps, delt, sens, rsrc_dim, rsrc):
     return rsrc_perturbed
 
 
-def save_data(iterations, nodes, f_star, a_dic, b_src, exp):
+def save_data(nodes, f_star, a_dic, b_src, exp):
     # Error between F_iter and F_star
-    f_iter = np.zeros(iterations)
-    for node in nodes.values():
-        f_iter = f_iter + node.f_iter
+    f_iter = sum([node.f_iter for node in nodes.values()])
 
     err = f_iter - f_star
     df = pd.DataFrame(err)
@@ -156,10 +158,8 @@ def save_data(iterations, nodes, f_star, a_dic, b_src, exp):
         df = pd.DataFrame(node.c_iter)
         df.to_excel(r'..\data\experiment' + exp + r'\node' + i + r'\c_iter.xlsx', index=False)
 
-    # Constraints' values
-    cons_iter = -np.kron(np.ones(iterations), b_src.reshape(-1, 1))
-    for i, node in nodes.items():
-        cons_iter = cons_iter + a_dic[i] @ node.x_iter
+    # The iterations of coupling constraints
+    cons_iter = sum([a_dic[i] @ node.x_iter for i, node in nodes.items()]) - b_src[:, np.newaxis]
 
     df = pd.DataFrame(cons_iter)
     df.to_excel(r'..\data\experiment' + exp + r'\cons_iter.xlsx', index=False)
@@ -167,17 +167,22 @@ def save_data(iterations, nodes, f_star, a_dic, b_src, exp):
 
 if __name__ == '__main__':
     # Experiment - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    experiment = '2'
+    experiment = '1'
 
     if experiment == '1':
         # Communication graph - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # Number of nodes
         N = 9
+
+        # The (name) sets of nodes and edges
         Nodes_set = {f'{i}' for i in range(1, N + 1)}
         Edges_set = {('1', '2'), ('2', '3'), ('3', '4'), ('3', '6'), ('3', '7'), ('4', '5'), ('6', '8'), ('7', '9')}
+
         # The coordinate of each node
         Nodes_pos = {'1': (-2, 0.6), '2': (-1, 0.3), '3': (0, 0), '4': (-1, -0.3), '5': (-2, -0.6), '6': (1, 0.3),
                      '7': (1, -0.3), '8': (2, 0.6), '9': (2, -0.6)}
 
+        # Plot the graph
         G = nx.Graph()
         G.add_nodes_from(Nodes_set)
         G.add_edges_from(Edges_set)
@@ -194,10 +199,10 @@ if __name__ == '__main__':
         # plt.savefig(r'..\manuscript\src\figures\fig1.png', dpi=300, bbox_inches='tight')
 
         # Parameters initialization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        T = 2000
-        di = 4
-        M = 3
-        step_size = 3
+        T = 2000       # iteration number
+        dim = 4        # dimension for the decision variable
+        M = 3          # constraints number
+        step_size = 3  # step size of the algorithm
 
         Q = {}
         g = {}
@@ -231,30 +236,25 @@ if __name__ == '__main__':
             A[i] = pd.read_excel(r'..\data\experiment1\node' + i + r'\A.xlsx').values
 
         D = pd.read_excel(r'..\data\experiment1\D.xlsx').values.reshape(-1)
-        b = np.array(
-            [D[np.where(D == 1)].size / 1000, D[np.where(D == 2)].size / 1000, D[np.where(D == 3)].size / 1000])
+        proportion_of_1 = D[np.where(D == 1)].size / 1000
+        proportion_of_2 = D[np.where(D == 2)].size / 1000
+        proportion_of_3 = D[np.where(D == 3)].size / 1000
 
-        f = {}
-        for i in Nodes_set:
-            f[i] = lambda var, index=i: var @ Q[index] @ var / 2 + g[index] @ var
+        # Vector 'b' represents the proportion of 1, 2, 3 in D respectively
+        b = np.array([proportion_of_1, proportion_of_2, proportion_of_3])
+
+        f = {i: lambda var, index=i: var @ Q[index] @ var / 2 + g[index] @ var for i in Nodes_set}
 
         # Centralized optimization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        x = {i: cp.Variable(di) for i in Nodes_set}
+        x = {i: cp.Variable(dim) for i in Nodes_set}
 
-        Cost = 0
-        for i in Nodes_set:
-            Cost = Cost + f[i](x[i])
+        centralized_cost = cp.sum([f[i](x[i]) for i in Nodes_set])
+        centralized_constraints = [cp.sum([A[i] @ x[i] for i in Nodes_set]) - b <= 0]
 
-        coupled_cons = -b
-        for i in Nodes_set:
-            coupled_cons = coupled_cons + A[i] @ x[i]
+        centralized_problem = cp.Problem(cp.Minimize(centralized_cost), centralized_constraints)
+        centralized_problem.solve(solver=cp.OSQP)
 
-        constraints = [cp.constraints.NonPos(coupled_cons)]
-
-        prob_cen = cp.Problem(cp.Minimize(Cost), constraints)
-        prob_cen.solve(solver=cp.OSQP)
-
-        F_star = prob_cen.value
+        F_star = centralized_problem.value
         print(F_star)
 
         # Resource perturbation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -266,13 +266,17 @@ if __name__ == '__main__':
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Initialize nodes and only send resources to node 1
-        Nodes = {i: NodeAGD(T, di, step_size, f[i], A[i]) for i in Nodes_set if i != '1'}
-        Nodes['1'] = NodeAGD(T, di, step_size, f['1'], A['1'], b_bar)
+        Nodes = {i: NodeAGD(T, dim, step_size, f[i], A[i]) for i in Nodes_set if i != '1'}
+        Nodes['1'] = NodeAGD(T, dim, step_size, f['1'], A['1'], b_bar)
 
-        # Build up communication edges
+        # Build up communication edges, all edges weight 1
         Edges = {e: (dissys.Edge(Nodes[e[0]], Nodes[e[1]], 1),
                      dissys.Edge(Nodes[e[1]], Nodes[e[0]], 1))
                  for e in Edges_set}
+
+        # Disconnect edge 1 <-> 2
+        # Edges[('1', '2')][0].disconnect()
+        # Edges[('1', '2')][1].disconnect()
 
         for Node in Nodes.values():
             Node.start()
@@ -281,7 +285,7 @@ if __name__ == '__main__':
             Node.join()
 
         # Save the results - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        save_data(T, Nodes, F_star, A, b, experiment)
+        save_data(Nodes, F_star, A, b, experiment)
 
     elif experiment == '2':
         # Communication graph - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -314,13 +318,13 @@ if __name__ == '__main__':
 
         # Parameters initialization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         T = 3000
-        di = 2
+        dim = 2
         M = 2
         step_size = 10
 
-        c_pro = {}
-        A_mat = {}
-        x_lab = {}
+        c_profit = {}
+        A_material = {}
+        x_laboratory = {}
 
         # Generate matrices
         # for i in Nodes_set:
@@ -341,36 +345,28 @@ if __name__ == '__main__':
         # df.to_excel(r'..\data\experiment2\b_mat.xlsx', index=False)
 
         for i in Nodes_set:
-            c_pro[i] = pd.read_excel(r'..\data\experiment2\node' + i + r'\c_pro.xlsx').values.reshape(-1)
-            A_mat[i] = pd.read_excel(r'..\data\experiment2\node' + i + r'\a_mat.xlsx').values
-            x_lab[i] = pd.read_excel(r'..\data\experiment2\node' + i + r'\x_lab.xlsx').values.reshape(-1)
+            c_profit[i] = pd.read_excel(r'..\data\experiment2\node' + i + r'\c_pro.xlsx').values.reshape(-1)
+            A_material[i] = pd.read_excel(r'..\data\experiment2\node' + i + r'\a_mat.xlsx').values
+            x_laboratory[i] = pd.read_excel(r'..\data\experiment2\node' + i + r'\x_lab.xlsx').values.reshape(-1)
 
-        b_mat = pd.read_excel(r'..\data\experiment2\b_mat.xlsx').values.reshape(-1)
+        b_material = pd.read_excel(r'..\data\experiment2\b_mat.xlsx').values.reshape(-1)
 
-        f = {}
-        for i in Nodes_set:
-            f[i] = lambda var, i=i: -c_pro[i] @ var
+        f = {i: lambda var, i=i: -c_profit[i] @ var for i in Nodes_set}
 
         # Centralized optimization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        x = {i: cp.Variable(di) for i in Nodes_set}
+        x = {i: cp.Variable(dim) for i in Nodes_set}
 
-        Cost = 0
-        for i in Nodes_set:
-            Cost = Cost + f[i](x[i])
+        centralized_cost = cp.sum([f[i](x[i]) for i in Nodes_set])
 
-        mat_cons = -b_mat
-        for i in Nodes_set:
-            mat_cons = mat_cons + A_mat[i] @ x[i]
+        material_constraints = [cp.sum([A_material[i] @ x[i] for i in Nodes_set]) - b_material <= 0]
+        laboratory_constraints = [x[i] - x_laboratory[i] <= 0 for i in Nodes_set]
 
-        constraints = [cp.constraints.NonPos(mat_cons)]
+        centralized_constraints = material_constraints + laboratory_constraints
 
-        for i in Nodes_set:
-            constraints.append(cp.constraints.NonPos(x[i] - x_lab[i]))
+        centralized_problem = cp.Problem(cp.Minimize(centralized_cost), centralized_constraints)
+        centralized_problem.solve(solver=cp.GLPK)
 
-        prob_cen = cp.Problem(cp.Minimize(Cost), constraints)
-        prob_cen.solve(solver=cp.GLPK)
-
-        F_star = prob_cen.value
+        F_star = centralized_problem.value
         print(F_star)
 
         # Resource perturbation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -378,12 +374,12 @@ if __name__ == '__main__':
         delta = 0.005
         Delta = 0.1
 
-        b_mat_bar = resource_perturbation(epsilon, delta, Delta, M, b_mat)
+        b_material_bar = resource_perturbation(epsilon, delta, Delta, M, b_material)
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # Initialize nodes and only send resources to node 1
-        Nodes = {i: NodeSG(T, di, step_size, f[i], A_mat[i], x_lab[i]) for i in Nodes_set if i != '1'}
-        Nodes['1'] = NodeSG(T, di, step_size, f['1'], A_mat['1'], x_lab['1'], b_mat_bar)
+        # Initialize nodes and only send the perturbed resources to node 1
+        Nodes = {i: NodeSG(T, dim, step_size, f[i], A_material[i], x_laboratory[i]) for i in Nodes_set if i != '1'}
+        Nodes['1'] = NodeSG(T, dim, step_size, f['1'], A_material['1'], x_laboratory['1'], b_material_bar)
 
         # Build up communication edges
         Edges = {e: (dissys.Edge(Nodes[e[0]], Nodes[e[1]], 1),
@@ -397,4 +393,4 @@ if __name__ == '__main__':
             Node.join()
 
         # Save the results - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        save_data(T, Nodes, F_star, A_mat, b_mat, experiment)
+        save_data(Nodes, F_star, A_material, b_material, experiment)
