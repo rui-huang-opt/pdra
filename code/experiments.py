@@ -1,18 +1,20 @@
-import cvxpy as cvx
+import cvxpy as cp
 import numpy as np
 import pandas as pd
+import networkx as nx
+import matplotlib.pyplot as plt
 import dissys
 import trunclap as tl
 
 
-class NodeExp1(dissys.Node):
-    def __init__(self, name, edges_send, edges_recv, iterations, dim, gamma, f_i, a_i: np.ndarray, b_i=None):
-        super().__init__(name, edges_send, edges_recv)
+class NodePDRABase(dissys.Node):
+    def __init__(self, iterations, dim, gamma, f_i, a_i: np.ndarray, b_i):
+        super().__init__()
         # Iteration numbers
         self.T = iterations
 
         # Local decision variables
-        self.x_i = cvx.Variable(dim)
+        self.x_i = cp.Variable(dim)
         # Array for storing the iterations of the local decision variables
         self.x_iter = np.zeros((dim, self.T))
 
@@ -22,8 +24,15 @@ class NodeExp1(dissys.Node):
         # Local objective function and constraint coefficient matrix
         self.f_i = f_i
         self.a_i = a_i
+
+        # Array for storing the iterations of local objective function
+        self.f_iter = np.zeros(self.T)
+
         # The number of local constraints
         self.cons_num = a_i.shape[0]
+
+        # Only node 1 can receive resource
+        self.b_i = b_i if b_i is not None else np.zeros(self.cons_num)
 
         # Auxiliary variables y and Lagrange multipliers c
         self.y = np.zeros(self.cons_num)
@@ -32,29 +41,32 @@ class NodeExp1(dissys.Node):
         self.y_iter = np.zeros((self.cons_num, self.T))
         self.c_iter = np.zeros((self.cons_num, self.T))
 
+        # l_i @ y, where l_i is the ith row of laplacian matrix L
+        self.li_y = cp.Parameter(self.cons_num)
+
+
+class NodeAGD(NodePDRABase):
+    def __init__(self, iterations, dim, gamma, f_i, a_i, b_i=None):
+        super().__init__(iterations, dim, gamma, f_i, a_i, b_i)
+
         # Auxiliary variables in accelerated gradient method
         self.w = np.zeros(self.cons_num)
         self.theta = 1
 
-        # Array for storing the iterations of local objective function
-        self.f_iter = np.zeros(self.T)
-
         # Model the local problem
-        self.li_y = cvx.Parameter(self.cons_num)
-        cons = [
-            cvx.constraints.NonPos(self.a_i @ self.x_i + self.li_y - (np.zeros(self.cons_num) if b_i is None else b_i))]
-        self.prob = cvx.Problem(cvx.Minimize(self.f_i(self.x_i)), cons)
+        cons = [cp.constraints.NonPos(self.a_i @ self.x_i + self.li_y - self.b_i)]
+        self.prob = cp.Problem(cp.Minimize(self.f_i(self.x_i)), cons)
 
     def run(self) -> None:
         for k in range(self.T):
             # Exchange the information of y with neighbors
             self.send_to_neighbors(self.y)
-            y_j_lst = self.recv_from_neighbors()
+            y_j_lst = self.get_from_neighbors()
 
             # Update the parameters of the local problem
             self.li_y.value = self.y * self.in_degree - sum(y_j_lst)
 
-            self.prob.solve(solver=cvx.OSQP)
+            self.prob.solve(solver=cp.OSQP)
 
             # Update the Lagrange multipliers
             self.c = self.prob.constraints[0].dual_value
@@ -67,7 +79,7 @@ class NodeExp1(dissys.Node):
 
             # Exchange the information of c with neighbors
             self.send_to_neighbors(self.c)
-            c_j_lst = self.recv_from_neighbors()
+            c_j_lst = self.get_from_neighbors()
 
             # Calculate the gradient
             li_c = self.c * self.in_degree - sum(c_j_lst)
@@ -81,54 +93,25 @@ class NodeExp1(dissys.Node):
             self.y = self.w + ((theta_temp - 1) / self.theta) * (self.w - w_temp)
 
 
-class NodeExp2(dissys.Node):
-    def __init__(self, name, edges_send, edges_recv, iterations, dim, gamma, f_i, a_i: np.ndarray, x_upper_i,
-                 b_i=None):
-        super().__init__(name, edges_send, edges_recv)
-        # Iteration numbers
-        self.T = iterations
-
-        # Local decision variables
-        self.x_i = cvx.Variable(dim)
-        # Array for storing the iterations of the local decision variables
-        self.x_iter = np.zeros((dim, self.T))
-
-        # The constant in the diminishing step size for (sub)gradient method
-        self.gamma = gamma
-
-        # Local objective function and constraint coefficient matrix
-        self.f_i = f_i
-        self.a_i = a_i
-        # The number of local constraints
-        self.cons_num = a_i.shape[0]
-
-        # Auxiliary variables y and Lagrange multipliers c
-        self.y = np.zeros(self.cons_num)
-        self.c = np.zeros(self.cons_num)
-        # Arrays for storing the iterations of auxiliary variables y and Lagrange multipliers c
-        self.y_iter = np.zeros((self.cons_num, self.T))
-        self.c_iter = np.zeros((self.cons_num, self.T))
-
-        # Array for storing the iterations of local objective function
-        self.f_iter = np.zeros(self.T)
+class NodeSG(NodePDRABase):
+    def __init__(self, iterations, dim, gamma, f_i, a_i, x_upper_i, b_i=None):
+        super().__init__(iterations, dim, gamma, f_i, a_i, b_i)
 
         # Model the local problem
-        self.li_y = cvx.Parameter(self.cons_num)
-        cons = [
-            cvx.constraints.NonPos(self.a_i @ self.x_i + self.li_y - (np.zeros(self.cons_num) if b_i is None else b_i)),
-            cvx.constraints.NonPos(self.x_i - x_upper_i)]
-        self.prob = cvx.Problem(cvx.Minimize(self.f_i(self.x_i)), cons)
+        cons = [cp.constraints.NonPos(self.a_i @ self.x_i + self.li_y - self.b_i),
+                cp.constraints.NonPos(self.x_i - x_upper_i)]
+        self.prob = cp.Problem(cp.Minimize(self.f_i(self.x_i)), cons)
 
     def run(self) -> None:
         for k in range(self.T):
             # Exchange the information of y with neighbors
             self.send_to_neighbors(self.y)
-            y_j_lst = self.recv_from_neighbors()
+            y_j_lst = self.get_from_neighbors()
 
             # Update the parameters of the local problem
             self.li_y.value = self.y * self.in_degree - sum(y_j_lst)
 
-            self.prob.solve(solver=cvx.GLPK)
+            self.prob.solve(solver=cp.GLPK)
 
             # Update the Lagrange multipliers
             self.c = self.prob.constraints[0].dual_value
@@ -141,9 +124,9 @@ class NodeExp2(dissys.Node):
 
             # Exchange the information of c with neighbors
             self.send_to_neighbors(self.c)
-            c_j_lst = self.recv_from_neighbors()
+            c_j_lst = self.get_from_neighbors()
 
-            # Calculate the gradient
+            # Calculate the subgradient
             li_c = self.c * self.in_degree - sum(c_j_lst)
 
             # Subgradient method
@@ -158,34 +141,10 @@ def resource_perturbation(eps, delt, sens, rsrc_dim, rsrc):
     return rsrc_perturbed
 
 
-def gen_nodes(exp, conn, iterations, dim, gamma, f_dic, a_dic, b_src, x_upper_dic=None):
-    q_send, q_recv = dissys.gen_communication_edges(conn)
-    nodes = []
-
-    if exp == '1':
-        for node in conn.keys():
-            if node == '1':
-                nodes.append(NodeExp1(node, q_send[node], q_recv[node],
-                                      iterations, dim, gamma, f_dic[node], a_dic[node], b_i=b_src))
-            else:
-                nodes.append(NodeExp1(node, q_send[node], q_recv[node],
-                                      iterations, dim, gamma, f_dic[node], a_dic[node]))
-    elif (exp == '2') and (x_upper_dic is not None):
-        for node in conn.keys():
-            if node == '1':
-                nodes.append(NodeExp2(node, q_send[node], q_recv[node],
-                                      iterations, dim, gamma, f_dic[node], a_dic[node], x_upper_dic[node], b_i=b_src))
-            else:
-                nodes.append(NodeExp2(node, q_send[node], q_recv[node],
-                                      iterations, dim, gamma, f_dic[node], a_dic[node], x_upper_dic[node]))
-
-    return nodes
-
-
 def save_data(iterations, nodes, f_star, a_dic, b_src, exp):
     # Error between F_iter and F_star
     f_iter = np.zeros(iterations)
-    for node in nodes:
+    for node in nodes.values():
         f_iter = f_iter + node.f_iter
 
     err = f_iter - f_star
@@ -193,14 +152,14 @@ def save_data(iterations, nodes, f_star, a_dic, b_src, exp):
     df.to_excel(r'..\data\experiment' + exp + r'\err.xlsx', index=False)
 
     # Lagrange multipliers
-    for node in nodes:
+    for i, node in nodes.items():
         df = pd.DataFrame(node.c_iter)
-        df.to_excel(r'..\data\experiment' + exp + r'\node' + node.name + r'\c_iter.xlsx', index=False)
+        df.to_excel(r'..\data\experiment' + exp + r'\node' + i + r'\c_iter.xlsx', index=False)
 
     # Constraints' values
     cons_iter = -np.kron(np.ones(iterations), b_src.reshape(-1, 1))
-    for node in nodes:
-        cons_iter = cons_iter + a_dic[node.name] @ node.x_iter
+    for i, node in nodes.items():
+        cons_iter = cons_iter + a_dic[i] @ node.x_iter
 
     df = pd.DataFrame(cons_iter)
     df.to_excel(r'..\data\experiment' + exp + r'\cons_iter.xlsx', index=False)
@@ -211,16 +170,28 @@ if __name__ == '__main__':
     experiment = '2'
 
     if experiment == '1':
-        # Communication connections - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        connections = {'1': ['2'],
-                       '2': ['1', '3'],
-                       '3': ['2', '4', '6', '7'],
-                       '4': ['3', '5'],
-                       '5': ['4'],
-                       '6': ['3', '8'],
-                       '7': ['3', '9'],
-                       '8': ['6'],
-                       '9': ['7']}
+        # Communication graph - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        N = 9
+        Nodes_set = {f'{i}' for i in range(1, N + 1)}
+        Edges_set = {('1', '2'), ('2', '3'), ('3', '4'), ('3', '6'), ('3', '7'), ('4', '5'), ('6', '8'), ('7', '9')}
+        # The coordinate of each node
+        Nodes_pos = {'1': (-2, 0.6), '2': (-1, 0.3), '3': (0, 0), '4': (-1, -0.3), '5': (-2, -0.6), '6': (1, 0.3),
+                     '7': (1, -0.3), '8': (2, 0.6), '9': (2, -0.6)}
+
+        G = nx.Graph()
+        G.add_nodes_from(Nodes_set)
+        G.add_edges_from(Edges_set)
+
+        fig, ax = plt.subplots(1, 1)
+        ax.set_aspect(1)
+        nx.draw(G, pos=Nodes_pos, with_labels=True, ax=ax)
+
+        plt.show()
+
+        L = nx.laplacian_matrix(G).toarray()  # Laplacian matrix
+        print(L)
+
+        # plt.savefig(r'..\manuscript\src\figures\fig1.png', dpi=300, bbox_inches='tight')
 
         # Parameters initialization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         T = 2000
@@ -233,55 +204,55 @@ if __name__ == '__main__':
         A = {}
 
         # Generate matrices
-        # for node in nodes:
+        # for i in Nodes_set:
         #     Q_i_prime = np.random.randn(di, di)
-        #     Q[node] = np.eye(di) + Q_i_prime @ Q_i_prime.T
-        #     df = pd.DataFrame(Q[node])
-        #     df.to_excel(r'..\data\experiment1\node' + node + r'\Q.xlsx', index=False)
+        #     Q[i] = np.eye(di) + Q_i_prime @ Q_i_prime.T
+        #     df = pd.DataFrame(Q[i])
+        #     df.to_excel(r'..\data\experiment1\node' + i + r'\Q.xlsx', index=False)
         #
-        #     g[node] = np.random.randint(-5, 5, di)
-        #     df = pd.DataFrame(g[node])
-        #     df.to_excel(r'..\data\experiment1\node' + node + r'\g.xlsx', index=False)
+        #     g[i] = np.random.randint(-5, 5, di)
+        #     df = pd.DataFrame(g[i])
+        #     df.to_excel(r'..\data\experiment1\node' + i + r'\g.xlsx', index=False)
         #
-        #     A[node] = np.random.randint(-50, 50, (M, di))
-        #     print(np.linalg.matrix_rank(A[node]))
-        #     df = pd.DataFrame(A[node])
-        #     df.to_excel(r'..\data\experiment1\node' + node + r'\A.xlsx', index=False)
-
+        #     A[i] = np.random.randint(-50, 50, (M, di))
+        #     print(np.linalg.matrix_rank(A[i]))
+        #     df = pd.DataFrame(A[i])
+        #     df.to_excel(r'..\data\experiment1\node' + i + r'\A.xlsx', index=False)
+        #
         # vec = np.random.uniform(0, 1, 3)
         # pr = vec / vec.sum()
         # D = np.random.choice([1, 2, 3], 1000, p=pr)
         # df = pd.DataFrame(D)
         # df.to_excel(r'..\data\experiment1\D.xlsx', index=False)
 
-        for node_i in connections.keys():
-            Q[node_i] = pd.read_excel(r'..\data\experiment1\node' + node_i + r'\Q.xlsx').values
-            g[node_i] = pd.read_excel(r'..\data\experiment1\node' + node_i + r'\g.xlsx').values.reshape(-1)
-            A[node_i] = pd.read_excel(r'..\data\experiment1\node' + node_i + r'\A.xlsx').values
+        for i in Nodes_set:
+            Q[i] = pd.read_excel(r'..\data\experiment1\node' + i + r'\Q.xlsx').values
+            g[i] = pd.read_excel(r'..\data\experiment1\node' + i + r'\g.xlsx').values.reshape(-1)
+            A[i] = pd.read_excel(r'..\data\experiment1\node' + i + r'\A.xlsx').values
 
         D = pd.read_excel(r'..\data\experiment1\D.xlsx').values.reshape(-1)
         b = np.array(
             [D[np.where(D == 1)].size / 1000, D[np.where(D == 2)].size / 1000, D[np.where(D == 3)].size / 1000])
 
         f = {}
-        for node_i in connections.keys():
-            f[node_i] = lambda var, i=node_i: var @ Q[i] @ var / 2 + g[i] @ var
+        for i in Nodes_set:
+            f[i] = lambda var, index=i: var @ Q[index] @ var / 2 + g[index] @ var
 
         # Centralized optimization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        x = {node_i: cvx.Variable(di) for node_i in connections.keys()}
+        x = {i: cp.Variable(di) for i in Nodes_set}
 
         Cost = 0
-        for node_i in connections.keys():
-            Cost = Cost + f[node_i](x[node_i])
+        for i in Nodes_set:
+            Cost = Cost + f[i](x[i])
 
         coupled_cons = -b
-        for node_i in connections.keys():
-            coupled_cons = coupled_cons + A[node_i] @ x[node_i]
+        for i in Nodes_set:
+            coupled_cons = coupled_cons + A[i] @ x[i]
 
-        constraints = [cvx.constraints.NonPos(coupled_cons)]
+        constraints = [cp.constraints.NonPos(coupled_cons)]
 
-        prob_cen = cvx.Problem(cvx.Minimize(Cost), constraints)
-        prob_cen.solve(solver=cvx.OSQP)
+        prob_cen = cp.Problem(cp.Minimize(Cost), constraints)
+        prob_cen.solve(solver=cp.OSQP)
 
         F_star = prob_cen.value
         print(F_star)
@@ -294,34 +265,52 @@ if __name__ == '__main__':
         b_bar = resource_perturbation(epsilon, delta, Delta, M, b)
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        Nodes = gen_nodes(experiment, connections, T, di, step_size, f, A, b_bar)
+        # Initialize nodes and only send resources to node 1
+        Nodes = {i: NodeAGD(T, di, step_size, f[i], A[i]) for i in Nodes_set if i != '1'}
+        Nodes['1'] = NodeAGD(T, di, step_size, f['1'], A['1'], b_bar)
 
-        for node_i in Nodes:
-            node_i.start()
+        # Build up communication edges
+        Edges = {e: (dissys.Edge(Nodes[e[0]], Nodes[e[1]], 1),
+                     dissys.Edge(Nodes[e[1]], Nodes[e[0]], 1))
+                 for e in Edges_set}
 
-        for node_i in Nodes:
-            node_i.join()
+        for Node in Nodes.values():
+            Node.start()
+
+        for Node in Nodes.values():
+            Node.join()
 
         # Save the results - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         save_data(T, Nodes, F_star, A, b, experiment)
 
     elif experiment == '2':
-        # Communication connections - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        connections = {'1': ['9', '11'],
-                       '2': ['3', '6', '7', '10'],
-                       '3': ['2', '15'],
-                       '4': ['8'],
-                       '5': ['14'],
-                       '6': ['2', '12'],
-                       '7': ['2'],
-                       '8': ['4', '15'],
-                       '9': ['1'],
-                       '10': ['2'],
-                       '11': ['1', '13', '14'],
-                       '12': ['6'],
-                       '13': ['11', '15'],
-                       '14': ['5', '11'],
-                       '15': ['3', '8', '13']}
+        # Communication graph - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        N = 15
+        Nodes_set = {f'{i}' for i in range(1, N + 1)}
+        Edges_set = {('1', '9'), ('1', '11'), ('2', '3'), ('2', '6'), ('2', '7'), ('2', '10'), ('6', '12'),
+                     ('3', '15'), ('4', '8'), ('5', '14'), ('8', '15'), ('11', '13'), ('11', '14'), ('13', '15')}
+        Nodes_pos = {'1': [0.13436424411240122, 0.8474337369372327], '2': [0.763774618976614, 0.2550690257394217],
+                     '3': [0.59543508709194095, 0.4494910647887381], '4': [0.651592972722763, 0.7887233511355132],
+                     '5': [0.0938595867742349, 0.02834747652200631], '6': [0.8357651039198697, 0.43276706790505337],
+                     '7': [0.762280082457942, 0.0021060533511106927], '8': [0.4453871940548014, 0.7215400323407826],
+                     '9': [0.22876222127045265, 0.9452706955539223], '10': [0.9014274576114836, 0.030589983033553536],
+                     '11': [0.0254458609934608, 0.5414124727934966], '12': [0.9391491627785106, 0.38120423768821243],
+                     '13': [0.21659939713061338, 0.4221165755827173], '14': [0.029040787574867943, 0.22169166627303505],
+                     '15': [0.43788759365057206, 0.49581224138185065]}
+
+        G = nx.Graph()
+        G.add_nodes_from(Nodes_set)
+        G.add_edges_from(Edges_set)
+
+        fig1, ax1 = plt.subplots(1, 1)
+        nx.draw(G, pos=Nodes_pos, with_labels=True, ax=ax1)
+
+        plt.show()
+
+        L = nx.laplacian_matrix(G).toarray()  # Laplacian matrix
+        print(L)
+
+        # plt.savefig(r'..\manuscript\src\figures\fig2.png', dpi=300, bbox_inches='tight')
 
         # Parameters initialization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         T = 3000
@@ -330,56 +319,56 @@ if __name__ == '__main__':
         step_size = 10
 
         c_pro = {}
-        a_mat = {}
+        A_mat = {}
         x_lab = {}
 
         # Generate matrices
-        # for node in nodes:
-        #     c_pro[node] = np.random.uniform(1, 2, di)
-        #     df = pd.DataFrame(c_pro[node])
-        #     df.to_excel(r'..\data\experiment2\node' + node + r'\c_pro.xlsx', index=False)
+        # for i in Nodes_set:
+        #     c_pro[i] = np.random.uniform(1, 2, di)
+        #     df = pd.DataFrame(c_pro[i])
+        #     df.to_excel(r'..\data\experiment2\node' + i + r'\c_pro.xlsx', index=False)
         #
-        #     a_mat[node] = np.random.uniform(1, 5, (M, di))
-        #     df = pd.DataFrame(a_mat[node])
-        #     df.to_excel(r'..\data\experiment2\node' + node + r'\a_mat.xlsx', index=False)
+        #     A_mat[i] = np.random.uniform(1, 5, (M, di))
+        #     df = pd.DataFrame(A_mat[i])
+        #     df.to_excel(r'..\data\experiment2\node' + i + r'\a_mat.xlsx', index=False)
         #
-        #     x_lab[node] = np.random.uniform(1, 5, di)
-        #     df = pd.DataFrame(x_lab[node])
-        #     df.to_excel(r'..\data\experiment2\node' + node + r'\x_lab.xlsx', index=False)
+        #     x_lab[i] = np.random.uniform(1, 5, di)
+        #     df = pd.DataFrame(x_lab[i])
+        #     df.to_excel(r'..\data\experiment2\node' + i + r'\x_lab.xlsx', index=False)
         #
         # b_mat = np.random.uniform(18, 22, M)
         # df = pd.DataFrame(b_mat)
         # df.to_excel(r'..\data\experiment2\b_mat.xlsx', index=False)
 
-        for node_i in connections.keys():
-            c_pro[node_i] = pd.read_excel(r'..\data\experiment2\node' + node_i + r'\c_pro.xlsx').values.reshape(-1)
-            a_mat[node_i] = pd.read_excel(r'..\data\experiment2\node' + node_i + r'\a_mat.xlsx').values
-            x_lab[node_i] = pd.read_excel(r'..\data\experiment2\node' + node_i + r'\x_lab.xlsx').values.reshape(-1)
+        for i in Nodes_set:
+            c_pro[i] = pd.read_excel(r'..\data\experiment2\node' + i + r'\c_pro.xlsx').values.reshape(-1)
+            A_mat[i] = pd.read_excel(r'..\data\experiment2\node' + i + r'\a_mat.xlsx').values
+            x_lab[i] = pd.read_excel(r'..\data\experiment2\node' + i + r'\x_lab.xlsx').values.reshape(-1)
 
         b_mat = pd.read_excel(r'..\data\experiment2\b_mat.xlsx').values.reshape(-1)
 
         f = {}
-        for node_i in connections.keys():
-            f[node_i] = lambda var, i=node_i: -c_pro[i] @ var
+        for i in Nodes_set:
+            f[i] = lambda var, i=i: -c_pro[i] @ var
 
         # Centralized optimization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        x = {node_i: cvx.Variable(di) for node_i in connections.keys()}
+        x = {i: cp.Variable(di) for i in Nodes_set}
 
         Cost = 0
-        for node_i in connections.keys():
-            Cost = Cost + f[node_i](x[node_i])
+        for i in Nodes_set:
+            Cost = Cost + f[i](x[i])
 
         mat_cons = -b_mat
-        for node_i in connections.keys():
-            mat_cons = mat_cons + a_mat[node_i] @ x[node_i]
+        for i in Nodes_set:
+            mat_cons = mat_cons + A_mat[i] @ x[i]
 
-        constraints = [cvx.constraints.NonPos(mat_cons)]
+        constraints = [cp.constraints.NonPos(mat_cons)]
 
-        for node_i in connections.keys():
-            constraints.append(cvx.constraints.NonPos(x[node_i] - x_lab[node_i]))
+        for i in Nodes_set:
+            constraints.append(cp.constraints.NonPos(x[i] - x_lab[i]))
 
-        prob_cen = cvx.Problem(cvx.Minimize(Cost), constraints)
-        prob_cen.solve(solver=cvx.GLPK)
+        prob_cen = cp.Problem(cp.Minimize(Cost), constraints)
+        prob_cen.solve(solver=cp.GLPK)
 
         F_star = prob_cen.value
         print(F_star)
@@ -392,13 +381,20 @@ if __name__ == '__main__':
         b_mat_bar = resource_perturbation(epsilon, delta, Delta, M, b_mat)
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        Nodes = gen_nodes(experiment, connections, T, di, step_size, f, a_mat, b_mat_bar, x_lab)
+        # Initialize nodes and only send resources to node 1
+        Nodes = {i: NodeSG(T, di, step_size, f[i], A_mat[i], x_lab[i]) for i in Nodes_set if i != '1'}
+        Nodes['1'] = NodeSG(T, di, step_size, f['1'], A_mat['1'], x_lab['1'], b_mat_bar)
 
-        for node_i in Nodes:
-            node_i.start()
+        # Build up communication edges
+        Edges = {e: (dissys.Edge(Nodes[e[0]], Nodes[e[1]], 1),
+                     dissys.Edge(Nodes[e[1]], Nodes[e[0]], 1))
+                 for e in Edges_set}
 
-        for node_i in Nodes:
-            node_i.join()
+        for Node in Nodes.values():
+            Node.start()
+
+        for Node in Nodes.values():
+            Node.join()
 
         # Save the results - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        save_data(T, Nodes, F_star, a_mat, b_mat, experiment)
+        save_data(T, Nodes, F_star, A_mat, b_mat, experiment)
