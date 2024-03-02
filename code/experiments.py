@@ -64,10 +64,10 @@ class NodeAGD(NodePDRABase):
         for k in range(self.T):
             # Exchange the information of y with neighbors
             self.send_to_neighbors(self.y)
-            y_j_lst = self.get_from_neighbors()
+            y_j_all = self.get_from_neighbors()
 
             # Update the parameters of the local problem
-            self.li_y.value = self.y * self.in_degree - sum(y_j_lst)
+            self.li_y.value = self.y * self.in_degree - sum(y_j_all)
 
             self.prob.solve(solver=cp.OSQP)
 
@@ -82,10 +82,10 @@ class NodeAGD(NodePDRABase):
 
             # Exchange the information of c with neighbors
             self.send_to_neighbors(self.c)
-            c_j_lst = self.get_from_neighbors()
+            c_j_all = self.get_from_neighbors()
 
             # Calculate the gradient
-            li_c = self.c * self.in_degree - sum(c_j_lst)
+            li_c = self.c * self.in_degree - sum(c_j_all)
 
             # Accelerated gradient method
             w_temp = self.w
@@ -110,10 +110,10 @@ class NodeSG(NodePDRABase):
         for k in range(self.T):
             # Exchange the information of y with neighbors
             self.send_to_neighbors(self.y)
-            y_j_lst = self.get_from_neighbors()
+            y_j_all = self.get_from_neighbors()
 
             # Update the parameters of the local problem
-            self.li_y.value = self.y * self.in_degree - sum(y_j_lst)
+            self.li_y.value = self.y * self.in_degree - sum(y_j_all)
 
             self.prob.solve(solver=cp.GLPK)
 
@@ -128,10 +128,10 @@ class NodeSG(NodePDRABase):
 
             # Exchange the information of c with neighbors
             self.send_to_neighbors(self.c)
-            c_j_lst = self.get_from_neighbors()
+            c_j_all = self.get_from_neighbors()
 
             # Calculate the subgradient
-            li_c = self.c * self.in_degree - sum(c_j_lst)
+            li_c = self.c * self.in_degree - sum(c_j_all)
 
             # Subgradient method
             self.y = self.y - (self.gamma / np.sqrt(k + 1)) * li_c
