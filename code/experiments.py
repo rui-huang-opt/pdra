@@ -9,10 +9,10 @@ import trunclap as tl
 
 # The common parts of the two modes of our algorithm
 class NodePDRABase(dissys.Node):
-    def __init__(self, iteration_number, dimension, gamma, f_i, a_i: np.ndarray, b_i):
+    def __init__(self, iterations, dimension, gamma, f_i, a_i: np.ndarray, b_i):
         super().__init__()
         # Iteration number
-        self.T = iteration_number
+        self.T = iterations
 
         # Local decision variables
         self.x_i = cp.Variable(dimension)
@@ -49,8 +49,8 @@ class NodePDRABase(dissys.Node):
 
 # Experiment 1
 class NodeAGD(NodePDRABase):
-    def __init__(self, iteration_number, dimension, gamma, f_i, a_i, b_i=None):
-        super().__init__(iteration_number, dimension, gamma, f_i, a_i, b_i)
+    def __init__(self, iterations, dimension, gamma, f_i, a_i, b_i=None):
+        super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
 
         # Auxiliary variables in accelerated gradient method
         self.w = np.zeros(self.cons_num)
@@ -98,8 +98,8 @@ class NodeAGD(NodePDRABase):
 
 # Experiment 2
 class NodeSG(NodePDRABase):
-    def __init__(self, iteration_number, dimension, gamma, f_i, a_i, x_upper_i, b_i=None):
-        super().__init__(iteration_number, dimension, gamma, f_i, a_i, b_i)
+    def __init__(self, iterations, dimension, gamma, f_i, a_i, x_upper_i, b_i=None):
+        super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
 
         # Model the local problem
         cons = [self.a_i @ self.x_i + self.li_y - self.b_i <= 0,
