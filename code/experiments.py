@@ -167,7 +167,7 @@ def save_data(nodes, f_star, a_dic, b_src, exp):
 
 if __name__ == '__main__':
     # Experiment - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    experiment = '2'
+    experiment = '1'
 
     if experiment == '1':
         # Communication graph - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -270,13 +270,13 @@ if __name__ == '__main__':
         Nodes['1'] = NodeAGD(T, dim, step_size, f['1'], A['1'], b_bar)
 
         # Build up communication edges, all edges weight 1
-        Edges = {e: (dissys.Edge(Nodes[e[0]], Nodes[e[1]]),
-                     dissys.Edge(Nodes[e[1]], Nodes[e[0]]))
+        Edges = {e[0] + '<->' + e[1]: (dissys.Edge(Nodes[e[0]], Nodes[e[1]]),
+                                       dissys.Edge(Nodes[e[1]], Nodes[e[0]]))
                  for e in Edges_set}
 
-        # Disconnect edge 1 <-> 2
-        # Edges[('1', '2')][0].disconnect()
-        # Edges[('1', '2')][1].disconnect()
+        # Disconnect edge 1<->2
+        # Edges['1<->2'][0].disconnect()
+        # Edges['1<->2'][1].disconnect()
 
         for Node in Nodes.values():
             Node.start()
