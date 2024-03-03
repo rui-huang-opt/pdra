@@ -64,7 +64,7 @@ class NodeAGD(NodePDRABase):
         for k in range(self.T):
             # Exchange the information of y with neighbors
             self.send_to_neighbors(self.y)
-            y_j_all = self.get_from_neighbors()
+            y_j_all = self.recv_from_neighbors()
 
             # Update the parameters of the local problem
             self.li_y.value = self.y * self.in_degree - sum(y_j_all)
@@ -82,7 +82,7 @@ class NodeAGD(NodePDRABase):
 
             # Exchange the information of c with neighbors
             self.send_to_neighbors(self.c)
-            c_j_all = self.get_from_neighbors()
+            c_j_all = self.recv_from_neighbors()
 
             # Calculate the gradient
             li_c = self.c * self.in_degree - sum(c_j_all)
@@ -110,7 +110,7 @@ class NodeSG(NodePDRABase):
         for k in range(self.T):
             # Exchange the information of y with neighbors
             self.send_to_neighbors(self.y)
-            y_j_all = self.get_from_neighbors()
+            y_j_all = self.recv_from_neighbors()
 
             # Update the parameters of the local problem
             self.li_y.value = self.y * self.in_degree - sum(y_j_all)
@@ -128,7 +128,7 @@ class NodeSG(NodePDRABase):
 
             # Exchange the information of c with neighbors
             self.send_to_neighbors(self.c)
-            c_j_all = self.get_from_neighbors()
+            c_j_all = self.recv_from_neighbors()
 
             # Calculate the subgradient
             li_c = self.c * self.in_degree - sum(c_j_all)
@@ -167,7 +167,7 @@ def save_data(nodes, f_star, a_dic, b_src, exp):
 
 if __name__ == '__main__':
     # Experiment - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    experiment = '1'
+    experiment = '2'
 
     if experiment == '1':
         # Communication graph - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -270,8 +270,8 @@ if __name__ == '__main__':
         Nodes['1'] = NodeAGD(T, dim, step_size, f['1'], A['1'], b_bar)
 
         # Build up communication edges, all edges weight 1
-        Edges = {e: (dissys.Edge(Nodes[e[0]], Nodes[e[1]], 1),
-                     dissys.Edge(Nodes[e[1]], Nodes[e[0]], 1))
+        Edges = {e: (dissys.Edge(Nodes[e[0]], Nodes[e[1]]),
+                     dissys.Edge(Nodes[e[1]], Nodes[e[0]]))
                  for e in Edges_set}
 
         # Disconnect edge 1 <-> 2
@@ -382,8 +382,8 @@ if __name__ == '__main__':
         Nodes['1'] = NodeSG(T, dim, step_size, f['1'], A_material['1'], x_laboratory['1'], b_material_bar)
 
         # Build up communication edges
-        Edges = {e: (dissys.Edge(Nodes[e[0]], Nodes[e[1]], 1),
-                     dissys.Edge(Nodes[e[1]], Nodes[e[0]], 1))
+        Edges = {e: (dissys.Edge(Nodes[e[0]], Nodes[e[1]]),
+                     dissys.Edge(Nodes[e[1]], Nodes[e[0]]))
                  for e in Edges_set}
 
         for Node in Nodes.values():

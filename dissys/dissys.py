@@ -8,11 +8,11 @@ class Node(threading.Thread):
     def __init__(self):
         super().__init__()
 
-        self.__in_edges = []
-        self.__out_edges = []
+        self.__in_edges: List['Edge'] = []
+        self.__out_edges: List['Edge'] = []
 
-        self.__in_degree = 0
-        self.__out_degree = 0
+        self.__in_degree: int = 0
+        self.__out_degree: int = 0
 
     @property
     def out_degree(self) -> int:
@@ -40,9 +40,9 @@ class Node(threading.Thread):
 
     def send_to_neighbors(self, data: np.ndarray) -> None:
         for edge in self.__out_edges:
-            edge.send(data)
+            edge.put(data)
 
-    def get_from_neighbors(self) -> List[np.ndarray]:
+    def recv_from_neighbors(self) -> List[np.ndarray]:
         data = []
         for edge in self.__in_edges:
             data.append(edge.get())
@@ -51,31 +51,18 @@ class Node(threading.Thread):
 
 
 class Edge(queue.Queue):
-    def __init__(self, from_node: 'Node', to_node: 'Node', weight: int or float, maxsize=1):
+    def __init__(self, from_node: 'Node', to_node: 'Node', maxsize=1):
         self.__is_connected = False
 
         self.__from_node = from_node
         self.__to_node = to_node
         self.connect()
 
-        self.__weight = weight
-
         super().__init__(maxsize=maxsize)
 
     @property
     def is_connected(self) -> bool:
         return self.__is_connected
-
-    @property
-    def weight(self) -> int or float:
-        return self.__weight
-
-    @weight.setter
-    def weight(self, value: int or float) -> None:
-        self.__weight = value
-
-    def send(self, data: np.ndarray) -> None:
-        self.put(self.__weight * data)
 
     def connect(self) -> None:
         if not self.__is_connected:
