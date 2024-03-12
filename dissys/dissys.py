@@ -43,11 +43,7 @@ class Node(threading.Thread):
             edge.put(data)
 
     def recv_from_neighbors(self) -> List[np.ndarray]:
-        data = []
-        for edge in self.__in_edges:
-            data.append(edge.get())
-
-        return data
+        return [edge.get() for edge in self.__in_edges]
 
 
 class Edge(queue.Queue):
