@@ -11,11 +11,11 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
     def __init__(self, iterations, dimension, gamma, f_i, a_i: np.ndarray, b_i):
         super().__init__()
         # Iteration number
-        self.T = iterations
+        self.iterations = iterations
 
         # Local decision variables and the array for taping its iterations
         self.x_i = cp.Variable(dimension)
-        self.x_i_iter = np.zeros((dimension, self.T))
+        self.x_i_iter = np.zeros((dimension, self.iterations))
 
         # Step size for accelerated gradient descent or the step length for subgradient method
         self.gamma = gamma
@@ -25,7 +25,7 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
         self.a_i = a_i
 
         # Array for taping the iterations of local objective function
-        self.f_i_iter = np.zeros(self.T)
+        self.f_i_iter = np.zeros(self.iterations)
 
         # The number of local constraints
         self.cons_num = a_i.shape[0]
@@ -36,8 +36,8 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
         # Auxiliary variables y, Lagrange multipliers c and the arrays for taping their iterations
         self.y_i = np.zeros(self.cons_num)
         self.c_i = np.zeros(self.cons_num)
-        self.y_i_iter = np.zeros((self.cons_num, self.T))
-        self.c_i_iter = np.zeros((self.cons_num, self.T))
+        self.y_i_iter = np.zeros((self.cons_num, self.iterations))
+        self.c_i_iter = np.zeros((self.cons_num, self.iterations))
 
         # l_i @ y, where l_i is the ith row of laplacian matrix L
         # It is set as a Parameter class in cvxpy for it changes during every iteration
@@ -75,7 +75,7 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
         ...
 
     def run(self) -> None:
-        for k in range(self.T):
+        for k in range(self.iterations):
             # Exchange the information of y with neighbors
             self.send_to_neighbors(self.y_i)
             y_j_all = self.recv_from_neighbors()
