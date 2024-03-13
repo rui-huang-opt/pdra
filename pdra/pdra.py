@@ -105,6 +105,7 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
             self.update_y(k)
 
 
+# Accelerated gradient method
 class NodeAG(NodePDRABase, metaclass=ABCMeta):
     def __init__(self, iterations, dimension, gamma, f_i, a_i: np.ndarray, b_i):
         super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
@@ -113,7 +114,6 @@ class NodeAG(NodePDRABase, metaclass=ABCMeta):
         self.w_i = np.zeros(self.cons_num)
         self.theta_i = 1
 
-    # Accelerated gradient method
     def update_y(self, k: int) -> None:
         old_w_i = self.w_i
         old_theta_i = self.theta_i
@@ -123,11 +123,11 @@ class NodeAG(NodePDRABase, metaclass=ABCMeta):
         self.y_i = self.w_i + ((old_theta_i - 1) / self.theta_i) * (self.w_i - old_w_i)
 
 
+# Subgradient method
 class NodeSG(NodePDRABase, metaclass=ABCMeta):
     def __init__(self, iterations, dimension, gamma, f_i, a_i: np.ndarray, b_i):
         super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
 
-    # Subgradient method
     def update_y(self, k: int) -> None:
         self.y_i = self.y_i - (self.gamma / np.sqrt(k + 1)) * self.li_c
 

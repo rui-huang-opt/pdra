@@ -7,7 +7,7 @@ import pdra
 from typing import List
 
 
-# Distributed Quadratic Programming (QP)
+# Distributed Quadratic Programming (QP), using accelerated gradient (AG) method
 class NodeDQP(pdra.NodeAG):
     def __init__(self, iterations, dimension, gamma, f_i, a_i, b_i=None):
         super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
@@ -21,7 +21,7 @@ class NodeDQP(pdra.NodeAG):
         return cp.OSQP
 
 
-# Collaborative Production
+# Collaborative Production, using subgradient (SG) method
 class NodeCP(pdra.NodeSG):
     def __init__(self, iterations, dimension, gamma, f_i, a_i, x_upper_i, b_i=None):
         self.x_upper_i = x_upper_i
