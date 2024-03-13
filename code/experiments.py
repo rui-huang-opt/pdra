@@ -137,12 +137,12 @@ class NodeSG(NodePDRABase):
             self.y = self.y - (self.gamma / np.sqrt(k + 1)) * li_c
 
 
-def resource_perturbation(eps, delt, sens, rsrc_dim, rsrc):
-    s = (sens / eps) * np.log(rsrc_dim * (np.exp(eps) - 1) / delt + 1)
-    trunc_lap = tl.TruncatedLaplace(-s, s, 0, sens / eps)
-    rsrc_perturbed = rsrc - s * np.ones(rsrc_dim) + trunc_lap(rsrc_dim)
+def resource_perturbation(eps, delt, sensitivity, resource_dim, resource):
+    s = (sensitivity / eps) * np.log(resource_dim * (np.exp(eps) - 1) / delt + 1)
+    trunc_lap = tl.TruncatedLaplace(-s, s, 0, sensitivity / eps)
+    perturbed_resource = resource - s * np.ones(resource_dim) + trunc_lap(resource_dim)
 
-    return rsrc_perturbed
+    return perturbed_resource
 
 
 def save_data(nodes, f_star, a_dic, b_src, exp):
@@ -269,7 +269,7 @@ if __name__ == '__main__':
         Nodes = {i: NodeAGD(T, dim, step_size, f[i], A[i]) for i in Nodes_set if i != '1'}
         Nodes['1'] = NodeAGD(T, dim, step_size, f['1'], A['1'], b_bar)
 
-        # Build up communication edges, all edges weight 1
+        # Build up communication edges
         Edges = {e[0] + '<->' + e[1]: (dissys.Edge(Nodes[e[0]], Nodes[e[1]]),
                                        dissys.Edge(Nodes[e[1]], Nodes[e[0]]))
                  for e in Edges_set}
@@ -377,11 +377,9 @@ if __name__ == '__main__':
         b_material_bar = resource_perturbation(epsilon, delta, Delta, M, b_material)
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # Initialize nodes and only send the perturbed resources to node 1
         Nodes = {i: NodeSG(T, dim, step_size, f[i], A_material[i], x_laboratory[i]) for i in Nodes_set if i != '1'}
         Nodes['1'] = NodeSG(T, dim, step_size, f['1'], A_material['1'], x_laboratory['1'], b_material_bar)
 
-        # Build up communication edges
         Edges = {e: (dissys.Edge(Nodes[e[0]], Nodes[e[1]]),
                      dissys.Edge(Nodes[e[1]], Nodes[e[0]]))
                  for e in Edges_set}
