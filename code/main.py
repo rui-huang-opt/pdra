@@ -123,9 +123,9 @@ if __name__ == '__main__':
         x = {i: cp.Variable(dim) for i in Nodes_set}
 
         centralized_cost = cp.sum([f[i](x[i]) for i in Nodes_set])
-        centralized_constraints = [cp.sum([A[i] @ x[i] for i in Nodes_set]) - b <= 0]
+        coupling_constraints = [cp.sum([A[i] @ x[i] for i in Nodes_set]) - b <= 0]
 
-        centralized_problem = cp.Problem(cp.Minimize(centralized_cost), centralized_constraints)
+        centralized_problem = cp.Problem(cp.Minimize(centralized_cost), coupling_constraints)
         centralized_problem.solve(solver=cp.OSQP)
 
         F_star = centralized_problem.value
