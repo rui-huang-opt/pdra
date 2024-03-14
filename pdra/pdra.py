@@ -12,7 +12,7 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
                  iterations: int,
                  dimension: int,
                  gamma: int or float,
-                 f_i: Callable[[np.ndarray or cp.Expression], int or float or cp.Expression],
+                 f_i: Callable[[cp.Expression], cp.Expression],
                  a_i: np.ndarray,
                  b_i: np.ndarray or None):
         super().__init__()
