@@ -4,11 +4,17 @@ import pandas as pd
 import dissys as ds
 from abc import ABCMeta, abstractmethod
 from trunclap import TruncatedLaplace
-from typing import List, Dict
+from typing import List, Dict, Callable
 
 
 class NodePDRABase(ds.Node, metaclass=ABCMeta):
-    def __init__(self, iterations, dimension, gamma, f_i, a_i: np.ndarray, b_i):
+    def __init__(self,
+                 iterations: int,
+                 dimension: int,
+                 gamma: int or float,
+                 f_i: Callable[[np.ndarray or cp.Expression], int or float or cp.Expression],
+                 a_i: np.ndarray,
+                 b_i: np.ndarray or None):
         super().__init__()
         # Iteration number
         self.iterations = iterations
@@ -107,10 +113,16 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
 
 # Accelerated gradient method
 class NodeAG(NodePDRABase, metaclass=ABCMeta):
-    def __init__(self, iterations, dimension, gamma, f_i, a_i: np.ndarray, b_i):
-        super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
+    def __init__(self,
+                 iterations: int,
+                 dimension: int,
+                 gamma: int or float,
+                 f_i: Callable[[np.ndarray or cp.Expression], int or float or cp.Expression],
+                 a_i: np.ndarray,
+                 b_i: np.ndarray or None):
 
         # Auxiliary variables in accelerated gradient method
+        super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
         self.w_i = np.zeros(self.cons_num)
         self.theta_i = 1
 
@@ -125,7 +137,13 @@ class NodeAG(NodePDRABase, metaclass=ABCMeta):
 
 # Subgradient method
 class NodeSG(NodePDRABase, metaclass=ABCMeta):
-    def __init__(self, iterations, dimension, gamma, f_i, a_i: np.ndarray, b_i):
+    def __init__(self,
+                 iterations: int,
+                 dimension: int,
+                 gamma: int or float,
+                 f_i: Callable[[np.ndarray or cp.Expression], int or float or cp.Expression],
+                 a_i: np.ndarray,
+                 b_i: np.ndarray or None):
         super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
 
     def update_y(self, k: int) -> None:
