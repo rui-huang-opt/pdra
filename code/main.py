@@ -41,7 +41,16 @@ if __name__ == '__main__':
     # Experiment - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Distributed Quadratic Programming
     # Collaborative Production
-    experiment = 'Distributed Quadratic Programming'
+    experiment = 'Collaborative Production'
+
+    # Some options for the figure of the communication graph
+    options = {'with_labels': True,
+               'font_size': 20,
+               'node_color': 'white',
+               'node_size': 1000,
+               'edgecolors': 'black',
+               'linewidths': 3,
+               'width': 3}
 
     if experiment == 'Distributed Quadratic Programming':
         # Communication graph - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -53,8 +62,8 @@ if __name__ == '__main__':
         Edges_set = {('1', '2'), ('2', '3'), ('3', '4'), ('3', '6'), ('3', '7'), ('4', '5'), ('6', '8'), ('7', '9')}
 
         # The coordinate of each node
-        Nodes_pos = {'1': (-2, 0.6), '2': (-1, 0.3), '3': (0, 0), '4': (-1, -0.3), '5': (-2, -0.6), '6': (1, 0.3),
-                     '7': (1, -0.3), '8': (2, 0.6), '9': (2, -0.6)}
+        Nodes_pos = {'1': (-2, 1), '2': (-1, 0.5), '3': (0, 0), '4': (-1, -0.5), '5': (-2, -1), '6': (1, 0.5),
+                     '7': (1, -0.5), '8': (2, 1), '9': (2, -1)}
 
         # Plot the graph
         G = nx.Graph()
@@ -63,14 +72,16 @@ if __name__ == '__main__':
 
         fig, ax = plt.subplots(1, 1)
         ax.set_aspect(1)
-        nx.draw(G, pos=Nodes_pos, with_labels=True, ax=ax)
+        ax.set_ylim([-1.5, 1.5])
+
+        nx.draw(G, pos=Nodes_pos, ax=ax, **options)
 
         plt.show()
 
         L = nx.laplacian_matrix(G).toarray()  # Laplacian matrix
         print(L)
 
-        # plt.savefig(r'..\manuscript\src\figures\fig1.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(r'..\manuscript\src\figures\fig1.png', dpi=300, bbox_inches='tight')
 
         # Parameters initialization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         T = 2000       # iteration number
@@ -167,28 +178,30 @@ if __name__ == '__main__':
         Nodes_set = {f'{i}' for i in range(1, N + 1)}
         Edges_set = {('1', '9'), ('1', '11'), ('2', '3'), ('2', '6'), ('2', '7'), ('2', '10'), ('6', '12'),
                      ('3', '15'), ('4', '8'), ('5', '14'), ('8', '15'), ('11', '13'), ('11', '14'), ('13', '15')}
-        Nodes_pos = {'1': [0.13436424411240122, 0.8474337369372327], '2': [0.763774618976614, 0.2550690257394217],
-                     '3': [0.59543508709194095, 0.4494910647887381], '4': [0.651592972722763, 0.7887233511355132],
-                     '5': [0.0938595867742349, 0.02834747652200631], '6': [0.8357651039198697, 0.43276706790505337],
-                     '7': [0.762280082457942, 0.0021060533511106927], '8': [0.4453871940548014, 0.7215400323407826],
-                     '9': [0.22876222127045265, 0.9452706955539223], '10': [0.9014274576114836, 0.030589983033553536],
-                     '11': [0.0254458609934608, 0.5414124727934966], '12': [0.9391491627785106, 0.38120423768821243],
-                     '13': [0.21659939713061338, 0.4221165755827173], '14': [0.029040787574867943, 0.22169166627303505],
-                     '15': [0.43788759365057206, 0.49581224138185065]}
+        Nodes_pos = {'1': [-3, 1.5], '2': [2, 1],
+                     '3': [1, 0.5], '4': [2, -1],
+                     '5': [-4, 0], '6': [3, 1.5],
+                     '7': [3, 0.5], '8': [1, -0.5],
+                     '9': [-4, 2], '10': [1, 1.5],
+                     '11': [-2, 1], '12': [4, 2],
+                     '13': [-1, 0.5], '14': [-3, 0.5],
+                     '15': [0, 0]}
 
         G = nx.Graph()
         G.add_nodes_from(Nodes_set)
         G.add_edges_from(Edges_set)
 
-        fig1, ax1 = plt.subplots(1, 1)
-        nx.draw(G, pos=Nodes_pos, with_labels=True, ax=ax1)
+        fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+        ax.set_aspect(1)
+
+        nx.draw(G, pos=Nodes_pos, ax=ax, **options)
 
         plt.show()
 
         L = nx.laplacian_matrix(G).toarray()  # Laplacian matrix
         print(L)
 
-        # plt.savefig(r'..\manuscript\src\figures\fig2.png', dpi=300, bbox_inches='tight')
+        # fig.savefig(r'..\manuscript\src\figures\fig2.png', dpi=300, bbox_inches='tight')
 
         # Parameters initialization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         T = 3000
