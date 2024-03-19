@@ -41,7 +41,7 @@ if __name__ == '__main__':
     # Experiment - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Distributed Quadratic Programming
     # Collaborative Production
-    experiment = 'Collaborative Production'
+    experiment = 'Distributed Quadratic Programming'
 
     # Some options for the figure of the communication graph
     options = {'with_labels': True,
@@ -49,8 +49,8 @@ if __name__ == '__main__':
                'node_color': 'white',
                'node_size': 1000,
                'edgecolors': 'black',
-               'linewidths': 3,
-               'width': 3}
+               'linewidths': 1.5,
+               'width': 1.5}
 
     if experiment == 'Distributed Quadratic Programming':
         # Communication graph - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
