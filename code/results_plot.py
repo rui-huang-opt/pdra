@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     # Convergence of the algorithm
     fig1, ax1 = plt.subplots(1, 1)
-    ax1.set_xlabel('Iteration number k')
+    ax1.set_xlabel('Iteration number k', fontsize=15)
 
     err = pd.read_excel(r'..\data\\' + experiment + r'\err.xlsx').values.reshape(-1)
 
@@ -40,11 +40,11 @@ if __name__ == '__main__':
 
     ax1.legend(loc='upper right')
 
-    # plt.savefig(r"..\manuscript\src\figures\fig3_a.png", dpi=300, bbox_inches='tight')
+    # fig1.savefig(r"..\manuscript\src\figures\fig4_a.png", dpi=300, bbox_inches='tight')
 
     # Lagrange multipliers
     fig2, ax2 = plt.subplots(1, 1)
-    ax2.set_xlabel('Iteration number k')
+    ax2.set_xlabel('Iteration number k', fontsize=15)
 
     c_iter = {node: pd.read_excel(r'..\data\\' + experiment + r'\node' + node + r'\c_iter.xlsx').values
               for node in nodes}
@@ -61,6 +61,7 @@ if __name__ == '__main__':
                     ax2.step(iterations, c_iter[node][m, :], color=color[node])
 
         ax2.legend(loc='upper right')
+
     elif experiment == 'Collaborative Production':
         ax2.set_ylim(0, 6)
 
@@ -71,11 +72,11 @@ if __name__ == '__main__':
                 ax2.step(iterations, c_iter[node][m, :])
                 ax2ins.step(iterations[2950:2999], c_iter[node][m, 2950:2999])
 
-    # plt.savefig(r"..\manuscript\src\figures\fig4_b.png", dpi=300, bbox_inches='tight')
+    # fig2.savefig(r"..\manuscript\src\figures\fig4_b.png", dpi=300, bbox_inches='tight')
 
     # The iterations of the coupling constraints
     fig3, ax3 = plt.subplots(1, 1)
-    ax3.set_xlabel('Iteration number k')
+    ax3.set_xlabel('Iteration number k', fontsize=15)
 
     cons_iter = pd.read_excel(r'..\data\\' + experiment + r'\cons_iter.xlsx').values
 
@@ -93,6 +94,6 @@ if __name__ == '__main__':
 
     ax3.legend(loc='lower right')
 
-    # plt.savefig(r"..\manuscript\src\figures\fig4_c.png", dpi=300, bbox_inches='tight')
+    # fig3.savefig(r"..\manuscript\src\figures\fig4_c.png", dpi=300, bbox_inches='tight')
 
     plt.show()
