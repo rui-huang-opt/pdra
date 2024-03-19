@@ -22,29 +22,30 @@ if __name__ == '__main__':
     # Convergence of the algorithm
     fig1, ax1 = plt.subplots(1, 1)
     ax1.set_xlabel('Iteration number k', fontsize=15)
+    ax1.tick_params(axis='both', labelsize=15)
 
     err = pd.read_excel(r'..\data\\' + experiment + r'\err.xlsx').values.reshape(-1)
 
-    if experiment == 'Distributed Quadratic Programming':
-        ax1.semilogy(iterations, err, label='$F(x_k)-F(x^*)$')
+    ax1_label = {'Distributed Quadratic Programming': '$F(x_k)-F(x^*)$', 'Collaborative Production': '$P(x^*)-P(x_k)$'}
+    ax1ins_y_lim = {'Distributed Quadratic Programming': (0, 0.005), 'Collaborative Production': (5, 10)}
+    ax1ins_slice = {'Distributed Quadratic Programming': slice(1800, 1999),
+                    'Collaborative Production': slice(2500, 2999)}
 
-        ax1ins = ax1.inset_axes((0.4, 0.4, 0.5, 0.3))
-        ax1ins.set_ylim(0, 0.005)
-        ax1ins.step(iterations[1800:1999], err[1800:1999])
-    elif experiment == 'Collaborative Production':
-        ax1.semilogy(iterations, err, label='$P(x^*)-P(x_k)$')
+    ax1.semilogy(iterations, err, label=ax1_label[experiment])
 
-        ax1ins = ax1.inset_axes((0.3, 0.35, 0.5, 0.5))
-        ax1ins.set_ylim(5, 10)
-        ax1ins.step(iterations[2500:2999], err[2500:2999])
+    ax1ins = ax1.inset_axes((0.4, 0.5, 0.5, 0.3))
+    ax1ins.tick_params(axis='both', labelsize=15)
+    ax1ins.set_ylim(*ax1ins_y_lim[experiment])
+    ax1ins.step(iterations[ax1ins_slice[experiment]], err[ax1ins_slice[experiment]])
 
-    ax1.legend(loc='upper right')
+    ax1.legend(loc='upper right', fontsize=15)
 
-    # fig1.savefig(r"..\manuscript\src\figures\fig4_a.png", dpi=300, bbox_inches='tight')
+    # fig1.savefig(r"..\manuscript\src\figures\fig3_a.png", dpi=300, bbox_inches='tight')
 
     # Lagrange multipliers
     fig2, ax2 = plt.subplots(1, 1)
     ax2.set_xlabel('Iteration number k', fontsize=15)
+    ax2.tick_params(axis='both', labelsize=15)
 
     c_iter = {node: pd.read_excel(r'..\data\\' + experiment + r'\node' + node + r'\c_iter.xlsx').values
               for node in nodes}
@@ -60,40 +61,43 @@ if __name__ == '__main__':
                 else:
                     ax2.step(iterations, c_iter[node][m, :], color=color[node])
 
-        ax2.legend(loc='upper right')
+        ax2.legend(loc='upper right', fontsize=15)
 
     elif experiment == 'Collaborative Production':
         ax2.set_ylim(0, 6)
 
         ax2ins = ax2.inset_axes((0.2, 0.3, 0.6, 0.6))
+        ax2ins.tick_params(axis='both', labelsize=15)
 
         for node in nodes:
             for m in range(M[experiment]):
                 ax2.step(iterations, c_iter[node][m, :])
                 ax2ins.step(iterations[2950:2999], c_iter[node][m, 2950:2999])
 
-    # fig2.savefig(r"..\manuscript\src\figures\fig4_b.png", dpi=300, bbox_inches='tight')
+    # fig2.savefig(r"..\manuscript\src\figures\fig3_b.png", dpi=300, bbox_inches='tight')
 
     # The iterations of the coupling constraints
     fig3, ax3 = plt.subplots(1, 1)
     ax3.set_xlabel('Iteration number k', fontsize=15)
+    ax3.tick_params(axis='both', labelsize=15)
 
     cons_iter = pd.read_excel(r'..\data\\' + experiment + r'\cons_iter.xlsx').values
 
-    ax3ins = ax3.inset_axes((0.3, 0.3, 0.5, 0.5))
+    ax3ins_size = {'Distributed Quadratic Programming': (0.3, 0.4, 0.5, 0.5),
+                   'Collaborative Production': (0.3, 0.3, 0.5, 0.5)}
+    ax3_label = {'Distributed Quadratic Programming': 'constraint ', 'Collaborative Production': 'material '}
+    ax3ins_slice = {'Distributed Quadratic Programming': slice(1800, 1999),
+                    'Collaborative Production': slice(2500, 2999)}
 
-    if experiment == 'Distributed Quadratic Programming':
-        for m in range(M[experiment]):
-            ax3.step(iterations, cons_iter[m, :], label=f'constraint {m + 1}')
-            ax3ins.step(iterations[1800:1999], cons_iter[m, 1800:1999])
+    ax3ins = ax3.inset_axes(ax3ins_size[experiment])
+    ax3ins.tick_params(axis='both', labelsize=15)
 
-    elif experiment == 'Collaborative Production':
-        for m in range(M[experiment]):
-            ax3.step(iterations, cons_iter[m, :], label=f'material {m + 1}')
-            ax3ins.step(iterations[2500:2999], cons_iter[m, 2500:2999])
+    for m in range(M[experiment]):
+        ax3.step(iterations, cons_iter[m, :], label=ax3_label[experiment] + f'{m + 1}')
+        ax3ins.step(iterations[ax3ins_slice[experiment]], cons_iter[m, ax3ins_slice[experiment]])
 
-    ax3.legend(loc='lower right')
+    ax3.legend(loc='lower right', fontsize=15)
 
-    # fig3.savefig(r"..\manuscript\src\figures\fig4_c.png", dpi=300, bbox_inches='tight')
+    # fig3.savefig(r"..\manuscript\src\figures\fig3_c.png", dpi=300, bbox_inches='tight')
 
     plt.show()
