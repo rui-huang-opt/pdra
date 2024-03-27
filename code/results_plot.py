@@ -7,7 +7,7 @@ if __name__ == '__main__':
     # Experiment - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Distributed Quadratic Programming
     # Collaborative Production
-    experiment = 'Collaborative Production'
+    experiment = 'Distributed Quadratic Programming'
 
     # Parameters - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     T = {'Distributed Quadratic Programming': 2000, 'Collaborative Production': 3000}
@@ -27,16 +27,8 @@ if __name__ == '__main__':
     err = pd.read_excel(r'..\data\\' + experiment + r'\err.xlsx').values.reshape(-1)
 
     ax1_label = {'Distributed Quadratic Programming': '$F(x_k)-F(x^*)$', 'Collaborative Production': '$P(x^*)-P(x_k)$'}
-    ax1ins_y_lim = {'Distributed Quadratic Programming': (0, 0.005), 'Collaborative Production': (5, 10)}
-    ax1ins_slice = {'Distributed Quadratic Programming': slice(1800, 1999),
-                    'Collaborative Production': slice(2500, 2999)}
 
     ax1.semilogy(iterations, err, label=ax1_label[experiment])
-
-    ax1ins = ax1.inset_axes((0.4, 0.5, 0.5, 0.3))
-    ax1ins.tick_params(axis='both', labelsize=15)
-    ax1ins.set_ylim(*ax1ins_y_lim[experiment])
-    ax1ins.step(iterations[ax1ins_slice[experiment]], err[ax1ins_slice[experiment]])
 
     ax1.legend(loc='upper right', fontsize=15)
 
@@ -83,18 +75,10 @@ if __name__ == '__main__':
 
     cons_iter = pd.read_excel(r'..\data\\' + experiment + r'\cons_iter.xlsx').values
 
-    ax3ins_size = {'Distributed Quadratic Programming': (0.3, 0.4, 0.5, 0.5),
-                   'Collaborative Production': (0.3, 0.3, 0.5, 0.5)}
     ax3_label = {'Distributed Quadratic Programming': 'constraint ', 'Collaborative Production': 'material '}
-    ax3ins_slice = {'Distributed Quadratic Programming': slice(1800, 1999),
-                    'Collaborative Production': slice(2500, 2999)}
-
-    ax3ins = ax3.inset_axes(ax3ins_size[experiment])
-    ax3ins.tick_params(axis='both', labelsize=15)
 
     for m in range(M[experiment]):
         ax3.step(iterations, cons_iter[m, :], label=ax3_label[experiment] + f'{m + 1}')
-        ax3ins.step(iterations[ax3ins_slice[experiment]], cons_iter[m, ax3ins_slice[experiment]])
 
     ax3.legend(loc='lower right', fontsize=15)
 
