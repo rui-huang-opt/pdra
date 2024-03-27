@@ -17,6 +17,8 @@ if __name__ == '__main__':
     nodes = [f'{i}' for i in range(1, N[experiment] + 1)]
 
     # Plots - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    plt.rcParams['font.family'] = 'Times New Roman'
+
     iterations = np.arange(1, T[experiment] + 1)
 
     # Convergence of the algorithm
@@ -49,7 +51,7 @@ if __name__ == '__main__':
         for node in nodes:
             for m in range(M[experiment]):
                 if m == 1:
-                    ax2.step(iterations, c_iter[node][m, :], color=color[node], label='node ' + node)
+                    ax2.step(iterations, c_iter[node][m, :], color=color[node], label='agent ' + node)
                 else:
                     ax2.step(iterations, c_iter[node][m, :], color=color[node])
 
