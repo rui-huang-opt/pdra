@@ -17,6 +17,9 @@ if __name__ == '__main__':
     nodes = [f'{i}' for i in range(1, N[experiment] + 1)]
 
     # Plots - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Enable Latex rendering
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
     plt.rcParams['font.family'] = 'Times New Roman'
 
     iterations = np.arange(1, T[experiment] + 1)
@@ -28,7 +31,8 @@ if __name__ == '__main__':
 
     err = pd.read_excel(r'..\data\\' + experiment + r'\err.xlsx').values.reshape(-1)
 
-    ax1_label = {'Distributed Quadratic Programming': '$F(x_k)-F(x^*)$', 'Collaborative Production': '$P(x^*)-P(x_k)$'}
+    ax1_label = {'Distributed Quadratic Programming': r'$F(\boldsymbol{x}_k)-F(\boldsymbol{x}^*)$',
+                 'Collaborative Production': r'$P(\boldsymbol{x}^*)-P(\boldsymbol{x}_k)$'}
 
     ax1.semilogy(iterations, err, label=ax1_label[experiment])
 
