@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     # Convergence of the algorithm
     fig1, ax1 = plt.subplots(1, 1)
-    ax1.set_xlabel('Iteration number k', fontsize=15)
+    ax1.set_xlabel('Iteration number $k$', fontsize=15)
     ax1.tick_params(axis='both', labelsize=15)
 
     err = pd.read_excel(r'..\data\\' + experiment + r'\err.xlsx').values.reshape(-1)
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     ax1_label = {'Distributed Quadratic Programming': r'$F(\boldsymbol{x}_k)-F(\boldsymbol{x}^*)$',
                  'Collaborative Production': r'$P(\boldsymbol{x}^*)-P(\boldsymbol{x}_k)$'}
 
-    ax1.semilogy(iterations, err, label=ax1_label[experiment])
+    ax1.step(iterations, err, label=ax1_label[experiment])
 
     ax1.legend(loc='upper right', fontsize=15)
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
     # Lagrange multipliers
     fig2, ax2 = plt.subplots(1, 1)
-    ax2.set_xlabel('Iteration number k', fontsize=15)
+    ax2.set_xlabel('Iteration number $k$', fontsize=15)
     ax2.tick_params(axis='both', labelsize=15)
 
     c_iter = {node: pd.read_excel(r'..\data\\' + experiment + r'\node' + node + r'\c_iter.xlsx').values
@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     # The iterations of the coupling constraints
     fig3, ax3 = plt.subplots(1, 1)
-    ax3.set_xlabel('Iteration number k', fontsize=15)
+    ax3.set_xlabel('Iteration number $k$', fontsize=15)
     ax3.tick_params(axis='both', labelsize=15)
 
     cons_iter = pd.read_excel(r'..\data\\' + experiment + r'\cons_iter.xlsx').values
