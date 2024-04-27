@@ -1,56 +1,36 @@
 import numpy as np
 import cvxpy as cp
-import pandas as pd
 import dissys as ds
 from abc import ABCMeta, abstractmethod
 from trunclap import TruncatedLaplace
-from typing import List, Dict, Callable
+from typing import List
 
 
 class NodePDRABase(ds.Node, metaclass=ABCMeta):
     def __init__(self,
                  iterations: int,
-                 dimension: int,
                  gamma: int or float,
-                 f_i: Callable[[cp.Expression], cp.Expression],
                  a_i: np.ndarray,
                  b_i: np.ndarray or None):
         super().__init__()
-        # Iteration number
+
         self.iterations = iterations
+        self.coupling_constraints_num, self.dimension = a_i.shape
 
-        # Local decision variables and the array for taping its iterations
-        self.x_i = cp.Variable(dimension)
-        self.x_i_iter = np.zeros((dimension, iterations))
-
-        # Step size for accelerated gradient descent or the step length for subgradient method
+        # Step size for updating y_i
         self.gamma = gamma
 
-        # Local objective function and constraint coefficient matrix
-        self.f_i = f_i
+        self.x_i = cp.Variable(self.dimension)
         self.a_i = a_i
+        self.b_i = np.zeros(self.coupling_constraints_num) if b_i is None else b_i
 
-        # Array for taping the iterations of local objective function
-        self.f_i_iter = np.zeros(iterations)
+        # Local auxiliary variables y_i and Lagrange multipliers c_i
+        self.y_i = np.zeros(self.coupling_constraints_num)
+        self.c_i = np.zeros(self.coupling_constraints_num)
 
-        # The number of local constraints
-        self.cons_num = a_i.shape[0]
-
-        # Only node 1 can receive resource, other nodes set it to 0 by default
-        self.b_i = b_i if b_i is not None else np.zeros(self.cons_num)
-
-        # Auxiliary variables y, Lagrange multipliers c and the arrays for taping their iterations
-        self.y_i = np.zeros(self.cons_num)
-        self.c_i = np.zeros(self.cons_num)
-        self.y_i_iter = np.zeros((self.cons_num, iterations))
-        self.c_i_iter = np.zeros((self.cons_num, iterations))
-
-        # l_i @ y, where l_i is the ith row of laplacian matrix L
-        # It is set as a Parameter class in cvxpy for it changes during every iteration
-        self.li_y = cp.Parameter(self.cons_num)
-
-        # l_i @ c, representing the corresponding (sub)gradient of y
-        self.li_c = np.zeros(self.cons_num)
+        # l_i @ y and l_i @ c, where l_i is the ith row of laplacian matrix L
+        self.li_y = cp.Parameter(self.coupling_constraints_num)
+        self.li_c = np.zeros(self.coupling_constraints_num)
 
         # The local optimization problem is modeled as
         #
@@ -58,19 +38,26 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
         # s.t. a_i @ x_i + l_i @ y - b_i <= 0,
         #      local constraints.
         #
-        self.prob = cp.Problem(cp.Minimize(self.f_i(self.x_i)),
+        self.prob = cp.Problem(cp.Minimize(self.f_i),
                                [self.a_i @ self.x_i + self.li_y - self.b_i <= 0] + self.local_constraints)
+
+        # The solver is set to OSQP by default
+        self.solver = cp.OSQP
+
+        # The iterations of the required data
+        self.f_i_iter = np.zeros(iterations)
+        self.x_i_iter = np.zeros((self.dimension, iterations))
+        self.c_i_iter = np.zeros((self.coupling_constraints_num, iterations))
+
+    @property
+    @abstractmethod
+    def f_i(self) -> cp.Expression:
+        ...
 
     # If there is no local constraint, return []
     @property
     @abstractmethod
     def local_constraints(self) -> List[cp.Constraint]:
-        ...
-
-    # It is better to use different solver for different types of problem
-    @property
-    @abstractmethod
-    def solver(self) -> str:
         ...
 
     # Update the auxiliary variable y through:
@@ -96,9 +83,8 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
             self.c_i = self.prob.constraints[0].dual_value
 
             # Tape the required data
+            self.f_i_iter[k] = self.f_i.value
             self.x_i_iter[:, k] = self.x_i.value
-            self.f_i_iter[k] = self.prob.value
-            self.y_i_iter[:, k] = self.y_i
             self.c_i_iter[:, k] = self.c_i
 
             # Exchange the information of c with neighbors
@@ -115,15 +101,12 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
 class NodeAG(NodePDRABase, metaclass=ABCMeta):
     def __init__(self,
                  iterations: int,
-                 dimension: int,
                  gamma: int or float,
-                 f_i: Callable[[np.ndarray or cp.Expression], int or float or cp.Expression],
                  a_i: np.ndarray,
                  b_i: np.ndarray or None):
-
         # Auxiliary variables in accelerated gradient method
-        super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
-        self.w_i = np.zeros(self.cons_num)
+        super().__init__(iterations, gamma, a_i, b_i)
+        self.w_i = np.zeros(self.coupling_constraints_num)
         self.theta_i = 1
 
     def update_y(self, k: int) -> None:
@@ -139,12 +122,10 @@ class NodeAG(NodePDRABase, metaclass=ABCMeta):
 class NodeSG(NodePDRABase, metaclass=ABCMeta):
     def __init__(self,
                  iterations: int,
-                 dimension: int,
                  gamma: int or float,
-                 f_i: Callable[[np.ndarray or cp.Expression], int or float or cp.Expression],
                  a_i: np.ndarray,
                  b_i: np.ndarray or None):
-        super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
+        super().__init__(iterations, gamma, a_i, b_i)
 
     def update_y(self, k: int) -> None:
         self.y_i = self.y_i - (self.gamma / np.sqrt(k + 1)) * self.li_c
@@ -164,27 +145,3 @@ def resource_perturbation(epsilon: int or float,
     perturbed_resource = resource - s * np.ones(resource_dim) + trunc_lap(resource_dim)
 
     return perturbed_resource
-
-
-def save_data(f_star: int or float,
-              nodes: Dict[str, NodePDRABase],
-              a_dic: Dict[str, np.ndarray],
-              b: np.ndarray,
-              file_path: str) -> None:
-    # Error between F_iter and F_star
-    f_iter = sum([node.f_i_iter for node in nodes.values()])
-
-    err = f_iter - f_star
-    df = pd.DataFrame(err)
-    df.to_excel(file_path + r'\err.xlsx', index=False)
-
-    # Lagrange multipliers
-    for i, node in nodes.items():
-        df = pd.DataFrame(node.c_i_iter)
-        df.to_excel(file_path + r'\node' + i + r'\c_iter.xlsx', index=False)
-
-    # The iterations of coupling constraints
-    cons_iter = sum([a_dic[i] @ node.x_i_iter for i, node in nodes.items()]) - b[:, np.newaxis]
-
-    df = pd.DataFrame(cons_iter)
-    df.to_excel(file_path + r'\cons_iter.xlsx', index=False)

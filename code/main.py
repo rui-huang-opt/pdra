@@ -9,32 +9,59 @@ from typing import List
 
 # Distributed Quadratic Programming (QP), using accelerated gradient (AG) method
 class NodeDQP(pdra.NodeAG):
-    def __init__(self, iterations, dimension, gamma, f_i, a_i, b_i=None):
-        super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
+    def __init__(self, q_i, g_i, iterations, gamma, a_i, b_i=None):
+        self.q_i = q_i
+        self.g_i = g_i
+
+        super().__init__(iterations, gamma, a_i, b_i)
+
+    @property
+    def f_i(self) -> cp.Expression:
+        return self.x_i @ self.q_i @ self.x_i / 2 + self.g_i @ self.x_i
 
     @property
     def local_constraints(self) -> List[cp.Constraint]:
         return []
 
-    @property
-    def solver(self) -> str:
-        return cp.OSQP
-
 
 # Collaborative Production, using subgradient (SG) method
 class NodeCP(pdra.NodeSG):
-    def __init__(self, iterations, dimension, gamma, f_i, a_i, x_upper_i, b_i=None):
-        self.x_upper_i = x_upper_i
+    def __init__(self, c_profit_i, x_laboratory_i, iterations, gamma, a_material_i, b_material_i=None):
+        self.c_profit_i = c_profit_i
+        self.x_laboratory_i = x_laboratory_i
 
-        super().__init__(iterations, dimension, gamma, f_i, a_i, b_i)
+        super().__init__(iterations, gamma, a_material_i, b_material_i)
+
+        # Set the solver to GLPK for it is more suitable for LP
+        self.solver = cp.GLPK
+
+    @property
+    def f_i(self) -> cp.Expression:
+        return -self.c_profit_i @ self.x_i
 
     @property
     def local_constraints(self) -> List[cp.Constraint]:
-        return [self.x_i - self.x_upper_i <= 0]
+        return [self.x_i - self.x_laboratory_i <= 0]
 
-    @property
-    def solver(self) -> str:
-        return cp.GLPK
+
+def save_results(f_star, nodes, directory_path) -> None:
+    # Error between F_iter and F_star
+    f_iter = sum([node.f_i_iter for node in nodes.values()])
+
+    err = f_iter - f_star
+    df = pd.DataFrame(err)
+    df.to_excel(directory_path + r'\err.xlsx', index=False)
+
+    # Lagrange multipliers
+    for i, node in nodes.items():
+        df = pd.DataFrame(node.c_i_iter)
+        df.to_excel(directory_path + r'\node' + i + r'\c_iter.xlsx', index=False)
+
+    # The iterations of coupling constraints
+    cons_iter = sum([node.a_i @ node.x_i_iter for i, node in nodes.items()]) - nodes['1'].b_i[:, np.newaxis]
+
+    df = pd.DataFrame(cons_iter)
+    df.to_excel(directory_path + r'\cons_iter.xlsx', index=False)
 
 
 if __name__ == '__main__':
@@ -84,9 +111,9 @@ if __name__ == '__main__':
         # fig.savefig(r'..\manuscript\src\figures\fig1.png', dpi=300, bbox_inches='tight')
 
         # Parameters initialization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        T = 2000       # iteration number
-        dim = 4        # dimension for the decision variable
-        M = 3          # constraints number
+        T = 2000  # iteration number
+        dim = 4  # dimension for the decision variable
+        M = 3  # constraints number
         step_size = 3  # step size of the algorithm
 
         Q = {}
@@ -128,12 +155,10 @@ if __name__ == '__main__':
         # Vector 'b' represents the proportion of 1, 2, 3 in D respectively
         b = np.array([proportion_of_1, proportion_of_2, proportion_of_3])
 
-        f = {i: lambda var, index=i: var @ Q[index] @ var / 2 + g[index] @ var for i in Nodes_set}
-
         # Centralized optimization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         x = {i: cp.Variable(dim) for i in Nodes_set}
 
-        centralized_cost = cp.sum([f[i](x[i]) for i in Nodes_set])
+        centralized_cost = cp.sum([x[i] @ Q[i] @ x[i] / 2 + g[i] @ x[i] for i in Nodes_set])
         coupling_constraints = [cp.sum([A[i] @ x[i] for i in Nodes_set]) - b <= 0]
 
         centralized_problem = cp.Problem(cp.Minimize(centralized_cost), coupling_constraints)
@@ -151,8 +176,8 @@ if __name__ == '__main__':
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Initialize nodes and only send resources to node 1
-        Nodes = {i: NodeDQP(T, dim, step_size, f[i], A[i]) for i in Nodes_set if i != '1'}
-        Nodes['1'] = NodeDQP(T, dim, step_size, f['1'], A['1'], b_bar)
+        Nodes = {i: NodeDQP(Q[i], g[i], T, step_size, A[i]) for i in Nodes_set if i != '1'}
+        Nodes['1'] = NodeDQP(Q['1'], g['1'], T, step_size, A['1'], b_bar)
 
         # Build up communication edges
         Edges = {e[0] + '<->' + e[1]: (pdra.Edge(Nodes[e[0]], Nodes[e[1]]),
@@ -170,7 +195,7 @@ if __name__ == '__main__':
             Node.join()
 
         # Save the results - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        pdra.save_data(F_star, Nodes, A, b, r'..\data\\' + experiment)
+        save_results(F_star, Nodes, r'..\data\\' + experiment)
 
     elif experiment == 'Collaborative Production':
         # Communication graph - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -234,16 +259,15 @@ if __name__ == '__main__':
         for i in Nodes_set:
             c_profit[i] = pd.read_excel(r'..\data\\' + experiment + r'\node' + i + r'\c_pro.xlsx').values.reshape(-1)
             A_material[i] = pd.read_excel(r'..\data\\' + experiment + r'\node' + i + r'\a_mat.xlsx').values
-            x_laboratory[i] = pd.read_excel(r'..\data\\' + experiment + r'\node' + i + r'\x_lab.xlsx').values.reshape(-1)
+            x_laboratory[i] = pd.read_excel(r'..\data\\' + experiment + r'\node' + i + r'\x_lab.xlsx').values.reshape(
+                -1)
 
         b_material = pd.read_excel(r'..\data\\' + experiment + r'\b_mat.xlsx').values.reshape(-1)
-
-        f = {i: lambda var, i=i: -c_profit[i] @ var for i in Nodes_set}
 
         # Centralized optimization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         x = {i: cp.Variable(dim) for i in Nodes_set}
 
-        centralized_cost = cp.sum([f[i](x[i]) for i in Nodes_set])
+        centralized_cost = cp.sum([-c_profit[i] @ x[i] for i in Nodes_set])
 
         laboratory_constraints = [x[i] - x_laboratory[i] <= 0 for i in Nodes_set]
         material_constraints = [cp.sum([A_material[i] @ x[i] for i in Nodes_set]) - b_material <= 0]
@@ -264,8 +288,8 @@ if __name__ == '__main__':
         b_material_bar = pdra.resource_perturbation(epsilon, delta, Delta, M, b_material)
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        Nodes = {i: NodeCP(T, dim, step_size, f[i], A_material[i], x_laboratory[i]) for i in Nodes_set if i != '1'}
-        Nodes['1'] = NodeCP(T, dim, step_size, f['1'], A_material['1'], x_laboratory['1'], b_material_bar)
+        Nodes = {i: NodeCP(c_profit[i], x_laboratory[i], T, step_size, A_material[i]) for i in Nodes_set if i != '1'}
+        Nodes['1'] = NodeCP(c_profit['1'], x_laboratory['1'], T, step_size, A_material['1'], b_material_bar)
 
         Edges = {e: (pdra.Edge(Nodes[e[0]], Nodes[e[1]]),
                      pdra.Edge(Nodes[e[1]], Nodes[e[0]]))
@@ -278,4 +302,4 @@ if __name__ == '__main__':
             Node.join()
 
         # Save the results - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        pdra.save_data(F_star, Nodes, A_material, b_material, r'..\data\\' + experiment)
+        save_results(F_star, Nodes, r'..\data\\' + experiment)
