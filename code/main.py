@@ -112,8 +112,6 @@ if __name__ == '__main__':
 
         # Parameters initialization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         T = 2000  # iteration number
-        dim = 4  # dimension for the decision variable
-        M = 3  # constraints number
         step_size = 3  # step size of the algorithm
 
         Q = {}
@@ -156,7 +154,7 @@ if __name__ == '__main__':
         b = np.array([proportion_of_1, proportion_of_2, proportion_of_3])
 
         # Centralized optimization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        x = {i: cp.Variable(dim) for i in Nodes_set}
+        x = {i: cp.Variable(A[i].shape[1]) for i in Nodes_set}
 
         centralized_cost = cp.sum([x[i] @ Q[i] @ x[i] / 2 + g[i] @ x[i] for i in Nodes_set])
         coupling_constraints = [cp.sum([A[i] @ x[i] for i in Nodes_set]) - b <= 0]
@@ -172,7 +170,7 @@ if __name__ == '__main__':
         delta = 0.005
         Delta = 0.002
 
-        b_bar = pdra.resource_perturbation(epsilon, delta, Delta, M, b)
+        b_bar = pdra.resource_perturbation(epsilon, delta, Delta, b)
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Initialize nodes and only send resources to node 1
@@ -230,8 +228,6 @@ if __name__ == '__main__':
 
         # Parameters initialization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         T = 3000
-        dim = 2
-        M = 2
         step_size = 10
 
         c_profit = {}
@@ -265,7 +261,7 @@ if __name__ == '__main__':
         b_material = pd.read_excel(r'..\data\\' + experiment + r'\b_mat.xlsx').values.reshape(-1)
 
         # Centralized optimization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        x = {i: cp.Variable(dim) for i in Nodes_set}
+        x = {i: cp.Variable(A_material[i].shape[1]) for i in Nodes_set}
 
         centralized_cost = cp.sum([-c_profit[i] @ x[i] for i in Nodes_set])
 
@@ -285,7 +281,7 @@ if __name__ == '__main__':
         delta = 0.005
         Delta = 0.1
 
-        b_material_bar = pdra.resource_perturbation(epsilon, delta, Delta, M, b_material)
+        b_material_bar = pdra.resource_perturbation(epsilon, delta, Delta, b_material)
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         Nodes = {i: NodeCP(c_profit[i], x_laboratory[i], T, step_size, A_material[i]) for i in Nodes_set if i != '1'}

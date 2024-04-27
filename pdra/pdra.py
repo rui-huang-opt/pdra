@@ -138,10 +138,9 @@ class Edge(ds.Edge):
 def resource_perturbation(epsilon: int or float,
                           delta: int or float,
                           sensitivity: int or float,
-                          resource_dim: int,
                           resource: np.ndarray) -> np.ndarray:
-    s = (sensitivity / epsilon) * np.log(resource_dim * (np.exp(epsilon) - 1) / delta + 1)
+    s = (sensitivity / epsilon) * np.log(resource.size * (np.exp(epsilon) - 1) / delta + 1)
     trunc_lap = TruncatedLaplace(-s, s, 0, sensitivity / epsilon)
-    perturbed_resource = resource - s * np.ones(resource_dim) + trunc_lap(resource_dim)
+    perturbed_resource = resource - s * np.ones(resource.size) + trunc_lap(resource.size)
 
     return perturbed_resource
