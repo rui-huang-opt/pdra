@@ -7,13 +7,13 @@ import pdra
 from typing import List
 
 
-# Distributed Quadratic Programming (QP), using accelerated gradient (AG) method
-class NodeDQP(pdra.NodeAG):
+# Distributed Quadratic Programming (QP), using accelerated gradient descent (AGD)
+class NodeDQP(pdra.NodeDRABase):
     def __init__(self, q_i, g_i, iterations, gamma, a_i, b_i=None):
         self.q_i = q_i
         self.g_i = g_i
 
-        super().__init__(iterations, gamma, a_i, b_i)
+        super().__init__(iterations, gamma, 'AGD', a_i, b_i)
 
     @property
     def f_i(self) -> cp.Expression:
@@ -23,17 +23,19 @@ class NodeDQP(pdra.NodeAG):
     def local_constraints(self) -> List[cp.Constraint]:
         return []
 
+    @property
+    def solver(self) -> str:
+        return cp.OSQP
 
-# Collaborative Production, using subgradient (SG) method
-class NodeCP(pdra.NodeSG):
+
+# Collaborative Production, using subgradient method (SM)
+class NodeCP(pdra.NodeDRABase):
     def __init__(self, c_profit_i, x_laboratory_i, iterations, gamma, a_material_i, b_material_i=None):
         self.c_profit_i = c_profit_i
         self.x_laboratory_i = x_laboratory_i
 
-        super().__init__(iterations, gamma, a_material_i, b_material_i)
-
-        # Set the solver to GLPK for it is more suitable for LP
-        self.solver = cp.GLPK
+        # Set the solver to GLPK since it is more suitable for LP
+        super().__init__(iterations, gamma, 'SM', a_material_i, b_material_i)
 
     @property
     def f_i(self) -> cp.Expression:
@@ -42,6 +44,10 @@ class NodeCP(pdra.NodeSG):
     @property
     def local_constraints(self) -> List[cp.Constraint]:
         return [self.x_i - self.x_laboratory_i <= 0]
+
+    @property
+    def solver(self) -> str:
+        return cp.GLPK
 
 
 def save_results(f_star, nodes, directory_path) -> None:

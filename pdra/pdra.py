@@ -1,28 +1,59 @@
 import numpy as np
 import cvxpy as cp
-import dissys as ds
+import dissys
+from typing import List
 from abc import ABCMeta, abstractmethod
 from trunclap import TruncatedLaplace
-from typing import List
 
 
-class NodePDRABase(ds.Node, metaclass=ABCMeta):
+# Accelerated gradient method
+class AGD:
+    def __init__(self, step_size: int or float):
+        self.step_size = step_size
+        self.w = None
+        self.theta = 1
+
+    def __call__(self, x: np.ndarray, gradient: np.ndarray):
+        old_w = x if self.w is None else self.w
+        old_theta = self.theta
+
+        self.w = x - self.step_size * gradient
+        self.theta = (1 + np.sqrt(1 + 4 * (self.theta ** 2))) / 2
+        new_x = self.w + ((old_theta - 1) / self.theta) * (self.w - old_w)
+
+        return new_x
+
+
+# Subgradient method
+class SM:
+    def __init__(self, step_length: int or float):
+        self.step_length = step_length
+        self.decay_factor = 1
+
+    def __call__(self, x: np.ndarray, subgradient: np.ndarray):
+        new_x = x - self.step_length * self.decay_factor * subgradient
+        self.decay_factor = np.sqrt(1 - 1 / (self.decay_factor ** 2 + 1))  # step size is gamma / sqrt(k + 1)
+
+        return new_x
+
+
+# Distributed resource allocation
+class NodeDRABase(dissys.Node, metaclass=ABCMeta):
     def __init__(self,
                  iterations: int,
                  gamma: int or float,
+                 method: str,
                  a_i: np.ndarray,
                  b_i: np.ndarray or None):
         super().__init__()
 
         self.iterations = iterations
+
+        self.a_i = a_i
         self.coupling_constraints_num, self.dimension = a_i.shape
 
-        # Step size for updating y_i
-        self.gamma = gamma
-
-        self.x_i = cp.Variable(self.dimension)
-        self.a_i = a_i
         self.b_i = np.zeros(self.coupling_constraints_num) if b_i is None else b_i
+        self.x_i = cp.Variable(self.dimension)
 
         # Local auxiliary variables y_i and Lagrange multipliers c_i
         self.y_i = np.zeros(self.coupling_constraints_num)
@@ -32,6 +63,9 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
         self.li_y = cp.Parameter(self.coupling_constraints_num)
         self.li_c = np.zeros(self.coupling_constraints_num)
 
+        # The method to update y_i
+        self.update_y_i = globals()[method](gamma)
+
         # The local optimization problem is modeled as
         #
         # min  f_i(x_i)
@@ -40,9 +74,6 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
         #
         self.prob = cp.Problem(cp.Minimize(self.f_i),
                                [self.a_i @ self.x_i + self.li_y - self.b_i <= 0] + self.local_constraints)
-
-        # The solver is set to OSQP by default
-        self.solver = cp.OSQP
 
         # The iterations of the required data
         self.f_i_iter = np.zeros(iterations)
@@ -60,11 +91,9 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
     def local_constraints(self) -> List[cp.Constraint]:
         ...
 
-    # Update the auxiliary variable y through:
-    # 1. "accelerated gradient method"
-    # 2. "subgradient method"
+    @property
     @abstractmethod
-    def update_y(self, k: int) -> None:
+    def solver(self) -> str:
         ...
 
     def run(self) -> None:
@@ -94,44 +123,11 @@ class NodePDRABase(ds.Node, metaclass=ABCMeta):
             # Calculate the (sub)gradient l_i @ c
             self.li_c = self.c_i * self.in_degree - sum(c_j_all)
 
-            self.update_y(k)
+            # Update y_i
+            self.y_i = self.update_y_i(self.y_i, self.li_c)
 
 
-# Accelerated gradient method
-class NodeAG(NodePDRABase, metaclass=ABCMeta):
-    def __init__(self,
-                 iterations: int,
-                 gamma: int or float,
-                 a_i: np.ndarray,
-                 b_i: np.ndarray or None):
-        # Auxiliary variables in accelerated gradient method
-        super().__init__(iterations, gamma, a_i, b_i)
-        self.w_i = np.zeros(self.coupling_constraints_num)
-        self.theta_i = 1
-
-    def update_y(self, k: int) -> None:
-        old_w_i = self.w_i
-        old_theta_i = self.theta_i
-
-        self.w_i = self.y_i - self.gamma * self.li_c
-        self.theta_i = (1 + np.sqrt(1 + 4 * (self.theta_i ** 2))) / 2
-        self.y_i = self.w_i + ((old_theta_i - 1) / self.theta_i) * (self.w_i - old_w_i)
-
-
-# Subgradient method
-class NodeSG(NodePDRABase, metaclass=ABCMeta):
-    def __init__(self,
-                 iterations: int,
-                 gamma: int or float,
-                 a_i: np.ndarray,
-                 b_i: np.ndarray or None):
-        super().__init__(iterations, gamma, a_i, b_i)
-
-    def update_y(self, k: int) -> None:
-        self.y_i = self.y_i - (self.gamma / np.sqrt(k + 1)) * self.li_c
-
-
-class Edge(ds.Edge):
+class Edge(dissys.Edge):
     pass
 
 

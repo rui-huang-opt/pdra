@@ -1,1 +1,1 @@
-from .pdra import NodeAG, NodeSG, Edge, resource_perturbation
+from .pdra import NodeDRABase, Edge, resource_perturbation
