@@ -1,7 +1,7 @@
 import cvxpy as cp
 import numpy as np
-import pandas as pd
 import networkx as nx
+import pandas as pd
 import matplotlib.pyplot as plt
 import pdra
 from typing import List
@@ -9,11 +9,11 @@ from typing import List
 
 # Distributed Quadratic Programming (QP), using accelerated gradient descent (AGD)
 class NodeDQP(pdra.NodeDRABase):
-    def __init__(self, q_i, g_i, iterations, gamma, a_i, b_i=None):
+    def __init__(self, q_i, g_i, iterations, gamma, a_i, **kwargs):
         self.q_i = q_i
         self.g_i = g_i
 
-        super().__init__(iterations, gamma, 'AGD', a_i, b_i)
+        super().__init__(iterations, gamma, pdra.AGD, a_i, **kwargs)
 
     @property
     def f_i(self) -> cp.Expression:
@@ -23,19 +23,15 @@ class NodeDQP(pdra.NodeDRABase):
     def local_constraints(self) -> List[cp.Constraint]:
         return []
 
-    @property
-    def solver(self) -> str:
-        return cp.OSQP
-
 
 # Collaborative Production, using subgradient method (SM)
 class NodeCP(pdra.NodeDRABase):
-    def __init__(self, c_profit_i, x_laboratory_i, iterations, gamma, a_material_i, b_material_i=None):
+    def __init__(self, c_profit_i, x_laboratory_i, iterations, gamma, a_material_i, **kwargs):
         self.c_profit_i = c_profit_i
         self.x_laboratory_i = x_laboratory_i
 
         # Set the solver to GLPK since it is more suitable for LP
-        super().__init__(iterations, gamma, 'SM', a_material_i, b_material_i)
+        super().__init__(iterations, gamma, pdra.SM, a_material_i, solver=cp.GLPK, **kwargs)
 
     @property
     def f_i(self) -> cp.Expression:
@@ -45,36 +41,22 @@ class NodeCP(pdra.NodeDRABase):
     def local_constraints(self) -> List[cp.Constraint]:
         return [self.x_i - self.x_laboratory_i <= 0]
 
-    @property
-    def solver(self) -> str:
-        return cp.GLPK
 
+def save_results(f_star, l_mat, r_vec, nodes, exper):
+    err_series = sum([node.f_i_series for node in nodes.values()]) - f_star
+    c_series = {f'{i}': node.c_i_series for i, node in nodes.items()}
+    cons_series = sum([l_mat[i] @ node.x_i_series for i, node in nodes.items()]) - r_vec[:, np.newaxis]
 
-def save_results(f_star, nodes, directory_path) -> None:
-    # Error between F_iter and F_star
-    f_iter = sum([node.f_i_iter for node in nodes.values()])
-
-    err = f_iter - f_star
-    df = pd.DataFrame(err)
-    df.to_excel(directory_path + r'\err.xlsx', index=False)
-
-    # Lagrange multipliers
-    for i, node in nodes.items():
-        df = pd.DataFrame(node.c_i_iter)
-        df.to_excel(directory_path + r'\node' + i + r'\c_iter.xlsx', index=False)
-
-    # The iterations of coupling constraints
-    cons_iter = sum([node.a_i @ node.x_i_iter for i, node in nodes.items()]) - nodes['1'].b_i[:, np.newaxis]
-
-    df = pd.DataFrame(cons_iter)
-    df.to_excel(directory_path + r'\cons_iter.xlsx', index=False)
+    np.save(rf'..\data\{exper}\results\err_series.npy', err_series)
+    np.savez(rf'..\data\{exper}\results\c_series.npz', **c_series)
+    np.save(rf'..\data\{exper}\results\cons_series.npy', cons_series)
 
 
 if __name__ == '__main__':
     # Experiment - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Distributed Quadratic Programming
     # Collaborative Production
-    experiment = 'Distributed Quadratic Programming'
+    experiment = 'Collaborative Production'
 
     # Some options for the figure of the communication graph
     options = {'with_labels': True,
@@ -117,41 +99,38 @@ if __name__ == '__main__':
         # fig.savefig(r'..\manuscript\src\figures\fig1.png', dpi=300, bbox_inches='tight')
 
         # Parameters initialization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        T = 2000  # iteration number
+        T = 2000       # iteration number
         step_size = 3  # step size of the algorithm
 
-        Q = {}
-        g = {}
-        A = {}
-
-        # Generate the parameters of the problem
+        # Generate the model of the problem
+        # di = 4
+        # M = 3
+        #
+        # Q = {}
+        # g = {}
+        # A = {}
+        #
         # for i in Nodes_set:
         #     Q_i_prime = np.random.randn(di, di)
         #     Q[i] = np.eye(di) + Q_i_prime @ Q_i_prime.T
-        #     df = pd.DataFrame(Q[i])
-        #     df.to_excel(r'..\data\Distributed Quadratic Programming\node' + i + r'\Q.xlsx', index=False)
-        #
         #     g[i] = np.random.randint(-5, 5, di)
-        #     df = pd.DataFrame(g[i])
-        #     df.to_excel(r'..\data\Distributed Quadratic Programming\node' + i + r'\g.xlsx', index=False)
-        #
         #     A[i] = np.random.randint(-50, 50, (M, di))
-        #     print(np.linalg.matrix_rank(A[i]))
-        #     df = pd.DataFrame(A[i])
-        #     df.to_excel(r'..\data\Distributed Quadratic Programming\node' + i + r'\A.xlsx', index=False)
+        #
+        # np.savez(rf'..\data\{experiment}\model\Q.npz', **Q)
+        # np.savez(rf'..\data\{experiment}\model\g.npz', **g)
+        # np.savez(rf'..\data\{experiment}\model\A.npz', **A)
         #
         # vec = np.random.uniform(0, 1, 3)
         # pr = vec / vec.sum()
         # D = np.random.choice([1, 2, 3], 1000, p=pr)
-        # df = pd.DataFrame(D)
-        # df.to_excel(r'..\data\Distributed Quadratic Programming\D.xlsx', index=False)
+        # np.save(rf'..\data\{experiment}\model\D.npy', D)
 
-        for i in Nodes_set:
-            Q[i] = pd.read_excel(r'..\data\\' + experiment + r'\node' + i + r'\Q.xlsx').values
-            g[i] = pd.read_excel(r'..\data\\' + experiment + r'\node' + i + r'\g.xlsx').values.reshape(-1)
-            A[i] = pd.read_excel(r'..\data\\' + experiment + r'\node' + i + r'\A.xlsx').values
+        Q = np.load(rf'..\data\{experiment}\model\Q.npz')
+        g = np.load(rf'..\data\{experiment}\model\g.npz')
+        A = np.load(rf'..\data\{experiment}\model\A.npz')
 
-        D = pd.read_excel(r'..\data\\' + experiment + r'\D.xlsx').values.reshape(-1)
+        D = np.load(rf'..\data\{experiment}\model\D.npy')
+
         proportion_of_1 = D[np.where(D == 1)].size / 1000
         proportion_of_2 = D[np.where(D == 2)].size / 1000
         proportion_of_3 = D[np.where(D == 3)].size / 1000
@@ -162,13 +141,13 @@ if __name__ == '__main__':
         # Centralized optimization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         x = {i: cp.Variable(A[i].shape[1]) for i in Nodes_set}
 
-        centralized_cost = cp.sum([x[i] @ Q[i] @ x[i] / 2 + g[i] @ x[i] for i in Nodes_set])
-        coupling_constraints = [cp.sum([A[i] @ x[i] for i in Nodes_set]) - b <= 0]
+        cost = cp.sum([x[i] @ Q[i] @ x[i] / 2 + g[i] @ x[i] for i in Nodes_set])
+        constraints = [cp.sum([A[i] @ x[i] for i in Nodes_set]) - b <= 0]
 
-        centralized_problem = cp.Problem(cp.Minimize(centralized_cost), coupling_constraints)
-        centralized_problem.solve(solver=cp.OSQP)
+        problem = cp.Problem(cp.Minimize(cost), constraints)
+        problem.solve(solver=cp.OSQP)
 
-        F_star = centralized_problem.value
+        F_star = problem.value
         print(F_star)
 
         # Resource perturbation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -181,7 +160,7 @@ if __name__ == '__main__':
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Initialize nodes and only send resources to node 1
         Nodes = {i: NodeDQP(Q[i], g[i], T, step_size, A[i]) for i in Nodes_set if i != '1'}
-        Nodes['1'] = NodeDQP(Q['1'], g['1'], T, step_size, A['1'], b_bar)
+        Nodes['1'] = NodeDQP(Q['1'], g['1'], T, step_size, A['1'], b_i=b_bar)
 
         # Build up communication edges
         Edges = {e[0] + '<->' + e[1]: (pdra.Edge(Nodes[e[0]], Nodes[e[1]]),
@@ -199,7 +178,7 @@ if __name__ == '__main__':
             Node.join()
 
         # Save the results - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        save_results(F_star, Nodes, r'..\data\\' + experiment)
+        save_results(F_star, A, b, Nodes, experiment)
 
     elif experiment == 'Collaborative Production':
         # Communication graph - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -236,50 +215,46 @@ if __name__ == '__main__':
         T = 3000
         step_size = 10
 
-        c_profit = {}
-        A_material = {}
-        x_laboratory = {}
-
-        # Generate the parameters of the problem
+        # Generate the model of the problem
+        # di = 2
+        # M = 2
+        #
+        # c_profit = {}
+        # A_material = {}
+        # x_laboratory = {}
+        #
         # for i in Nodes_set:
-        #     c_pro[i] = np.random.uniform(1, 2, di)
-        #     df = pd.DataFrame(c_pro[i])
-        #     df.to_excel(r'..\data\Collaborative Production\node' + i + r'\c_pro.xlsx', index=False)
+        #     c_profit[i] = np.random.uniform(1, 2, di)
+        #     A_material[i] = np.random.uniform(1, 5, (M, di))
+        #     x_laboratory[i] = np.random.uniform(1, 5, di)
         #
-        #     A_mat[i] = np.random.uniform(1, 5, (M, di))
-        #     df = pd.DataFrame(A_mat[i])
-        #     df.to_excel(r'..\data\Collaborative Production\node' + i + r'\a_mat.xlsx', index=False)
+        # np.savez(rf'..\data\Collaborative Production\model\c_profit.npz', **c_profit)
+        # np.savez(rf'..\data\Collaborative Production\model\A_material.npz', **A_material)
+        # np.savez(rf'..\data\Collaborative Production\model\x_laboratory.npz', **x_laboratory)
         #
-        #     x_lab[i] = np.random.uniform(1, 5, di)
-        #     df = pd.DataFrame(x_lab[i])
-        #     df.to_excel(r'..\data\Collaborative Production\node' + i + r'\x_lab.xlsx', index=False)
-        #
-        # b_mat = np.random.uniform(18, 22, M)
-        # df = pd.DataFrame(b_mat)
-        # df.to_excel(r'..\data\Collaborative Production\b_mat.xlsx', index=False)
+        # b_material = np.random.uniform(18, 22, M)
+        # np.save(rf'..\data\Collaborative Production\model\b_material.npy', b_material)
 
-        for i in Nodes_set:
-            c_profit[i] = pd.read_excel(r'..\data\\' + experiment + r'\node' + i + r'\c_pro.xlsx').values.reshape(-1)
-            A_material[i] = pd.read_excel(r'..\data\\' + experiment + r'\node' + i + r'\a_mat.xlsx').values
-            x_laboratory[i] = pd.read_excel(r'..\data\\' + experiment + r'\node' + i + r'\x_lab.xlsx').values.reshape(
-                -1)
+        c_profit = np.load(rf'..\data\{experiment}\model\c_profit.npz')
+        A_material = np.load(rf'..\data\{experiment}\model\A_material.npz')
+        x_laboratory = np.load(rf'..\data\{experiment}\model\x_laboratory.npz')
 
-        b_material = pd.read_excel(r'..\data\\' + experiment + r'\b_mat.xlsx').values.reshape(-1)
+        b_material = np.load(rf'..\data\{experiment}\model\b_material.npy')
 
         # Centralized optimization - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         x = {i: cp.Variable(A_material[i].shape[1]) for i in Nodes_set}
 
-        centralized_cost = cp.sum([-c_profit[i] @ x[i] for i in Nodes_set])
+        cost = cp.sum([-c_profit[i] @ x[i] for i in Nodes_set])
 
         laboratory_constraints = [x[i] - x_laboratory[i] <= 0 for i in Nodes_set]
         material_constraints = [cp.sum([A_material[i] @ x[i] for i in Nodes_set]) - b_material <= 0]
 
-        centralized_constraints = material_constraints + laboratory_constraints
+        constraints = material_constraints + laboratory_constraints
 
-        centralized_problem = cp.Problem(cp.Minimize(centralized_cost), centralized_constraints)
-        centralized_problem.solve(solver=cp.GLPK)
+        problem = cp.Problem(cp.Minimize(cost), constraints)
+        problem.solve(solver=cp.GLPK)
 
-        F_star = centralized_problem.value
+        F_star = problem.value
         print(F_star)
 
         # Resource perturbation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -291,7 +266,7 @@ if __name__ == '__main__':
 
         # Distributed resource allocation - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         Nodes = {i: NodeCP(c_profit[i], x_laboratory[i], T, step_size, A_material[i]) for i in Nodes_set if i != '1'}
-        Nodes['1'] = NodeCP(c_profit['1'], x_laboratory['1'], T, step_size, A_material['1'], b_material_bar)
+        Nodes['1'] = NodeCP(c_profit['1'], x_laboratory['1'], T, step_size, A_material['1'], b_i=b_material_bar)
 
         Edges = {e: (pdra.Edge(Nodes[e[0]], Nodes[e[1]]),
                      pdra.Edge(Nodes[e[1]], Nodes[e[0]]))
@@ -304,4 +279,4 @@ if __name__ == '__main__':
             Node.join()
 
         # Save the results - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        save_results(F_star, Nodes, r'..\data\\' + experiment)
+        save_results(F_star, A_material, b_material, Nodes, experiment)

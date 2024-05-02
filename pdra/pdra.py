@@ -44,27 +44,29 @@ class NodeDRABase(dissys.Node, metaclass=ABCMeta):
                  gamma: int or float,
                  method: str,
                  a_i: np.ndarray,
-                 b_i: np.ndarray or None):
+                 **kwargs):
         super().__init__()
 
         self.iterations = iterations
 
-        self.a_i = a_i
         self.coupling_constraints_num, self.dimension = a_i.shape
 
-        self.b_i = np.zeros(self.coupling_constraints_num) if b_i is None else b_i
         self.x_i = cp.Variable(self.dimension)
 
-        # Local auxiliary variables y_i and Lagrange multipliers c_i
+        # Local auxiliary variables y_i
         self.y_i = np.zeros(self.coupling_constraints_num)
-        self.c_i = np.zeros(self.coupling_constraints_num)
 
-        # l_i @ y and l_i @ c, where l_i is the ith row of laplacian matrix L
+        # l_i @ y, where l_i is the ith row of laplacian matrix L
         self.li_y = cp.Parameter(self.coupling_constraints_num)
-        self.li_c = np.zeros(self.coupling_constraints_num)
 
         # The method to update y_i
         self.update_y_i = globals()[method](gamma)
+
+        # Only certain node can get the information of the resource, others will set b_i to 0 by default
+        b_i = kwargs.get('b_i', 0)
+
+        # The solver to the local problem (is set to OSQP by default)
+        self.solver = kwargs.get('solver', cp.OSQP)
 
         # The local optimization problem is modeled as
         #
@@ -72,13 +74,13 @@ class NodeDRABase(dissys.Node, metaclass=ABCMeta):
         # s.t. a_i @ x_i + l_i @ y - b_i <= 0,
         #      local constraints.
         #
-        self.prob = cp.Problem(cp.Minimize(self.f_i),
-                               [self.a_i @ self.x_i + self.li_y - self.b_i <= 0] + self.local_constraints)
+        # The value of b_i will be set to 0 if the node don't receive the information of the resource
+        self.prob = cp.Problem(cp.Minimize(self.f_i), [a_i @ self.x_i + self.li_y - b_i <= 0] + self.local_constraints)
 
-        # The iterations of the required data
-        self.f_i_iter = np.zeros(iterations)
-        self.x_i_iter = np.zeros((self.dimension, iterations))
-        self.c_i_iter = np.zeros((self.coupling_constraints_num, iterations))
+        # The iteration series of the required data
+        self.f_i_series = np.zeros(iterations)
+        self.x_i_series = np.zeros((self.dimension, iterations))
+        self.c_i_series = np.zeros((self.coupling_constraints_num, iterations))
 
     @property
     @abstractmethod
@@ -89,11 +91,6 @@ class NodeDRABase(dissys.Node, metaclass=ABCMeta):
     @property
     @abstractmethod
     def local_constraints(self) -> List[cp.Constraint]:
-        ...
-
-    @property
-    @abstractmethod
-    def solver(self) -> str:
         ...
 
     def run(self) -> None:
@@ -108,23 +105,22 @@ class NodeDRABase(dissys.Node, metaclass=ABCMeta):
 
             self.prob.solve(solver=self.solver)
 
-            # Update the Lagrange multipliers
-            self.c_i = self.prob.constraints[0].dual_value
+            # Obtain the Lagrange multipliers
+            c_i = self.prob.constraints[0].dual_value
 
-            # Tape the required data
-            self.f_i_iter[k] = self.f_i.value
-            self.x_i_iter[:, k] = self.x_i.value
-            self.c_i_iter[:, k] = self.c_i
-
-            # Exchange the information of c with neighbors
-            self.send_to_neighbors(self.c_i)
+            # Exchange the information of c_i with neighbors
+            self.send_to_neighbors(c_i)
             c_j_all = self.recv_from_neighbors()
 
-            # Calculate the (sub)gradient l_i @ c
-            self.li_c = self.c_i * self.in_degree - sum(c_j_all)
+            # Calculate the (sub)gradient, l_i @ c
+            li_c = c_i * self.in_degree - sum(c_j_all)
 
-            # Update y_i
-            self.y_i = self.update_y_i(self.y_i, self.li_c)
+            self.y_i = self.update_y_i(self.y_i, li_c)
+
+            # Take the snapshot
+            self.f_i_series[k] = self.f_i.value
+            self.x_i_series[:, k] = self.x_i.value
+            self.c_i_series[:, k] = c_i
 
 
 class Edge(dissys.Edge):

@@ -103,7 +103,7 @@ class TruncatedLaplace(object):
 
     def __call__(self, dim=1) -> int or float or np.ndarray:
         if not isinstance(dim, int) and dim >= 0:
-            raise TruncatedLaplaceError("The parameter size must be positive integers.")
+            raise TruncatedLaplaceError("The model size must be positive integers.")
 
         if dim == 1:
             res = self.get_random_scalar_value()
