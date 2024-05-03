@@ -42,9 +42,9 @@ class NodeCP(pdra.NodeDRABase):
 
 
 def save_results(f_star, l_mat, r_vec, nodes, exper):
-    err_series = sum([node.f_i_series for node in nodes.values()]) - f_star
+    err_series = sum(node.f_i_series for node in nodes.values()) - f_star
     c_series = {f'{i}': node.c_i_series for i, node in nodes.items()}
-    cons_series = sum([l_mat[i] @ node.x_i_series for i, node in nodes.items()]) - r_vec[:, np.newaxis]
+    cons_series = sum(l_mat[i] @ node.x_i_series for i, node in nodes.items()) - r_vec[:, np.newaxis]
 
     np.save(rf'..\data\{exper}\results\err_series.npy', err_series)
     np.savez(rf'..\data\{exper}\results\c_series.npz', **c_series)
