@@ -40,19 +40,23 @@ class Node(threading.Thread):
 
     def send_to_neighbors(self, data: np.ndarray) -> None:
         for edge in self.__out_edges:
-            edge.put(data)
+            edge.send(data)
 
     def recv_from_neighbors(self) -> List[np.ndarray]:
-        return [edge.get() for edge in self.__in_edges]
+        return [edge.recv() for edge in self.__in_edges]
 
 
 class Edge(queue.Queue):
-    def __init__(self, from_node: 'Node', to_node: 'Node', maxsize=1):
+    def __init__(self, from_node: 'Node', to_node: 'Node', with_noise: bool = False,
+                 noise_scale: int or float = 0.005, maxsize: int = 1):
         self.__is_connected = False
 
         self.__from_node = from_node
         self.__to_node = to_node
         self.connect()
+
+        self.__with_noise = with_noise
+        self.__noise_scale = noise_scale
 
         super().__init__(maxsize=maxsize)
 
@@ -71,3 +75,13 @@ class Edge(queue.Queue):
             self.__from_node.remove_out_edge(self)
             self.__to_node.remove_in_edge(self)
             self.__is_connected = False
+
+    def send(self, data: np.ndarray) -> None:
+        if self.__with_noise:
+            noise = np.random.normal(loc=0, scale=self.__noise_scale, size=data.size)
+            self.put(data + noise)
+        else:
+            self.put(data)
+
+    def recv(self) -> np.ndarray:
+        return self.get()
