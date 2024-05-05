@@ -48,7 +48,7 @@ class Node(threading.Thread):
 
 class Edge(queue.Queue):
     def __init__(self, from_node: 'Node', to_node: 'Node', with_noise: bool = False,
-                 noise_scale: int or float = 0.005, maxsize: int = 1):
+                 noise_scale: int or float = 0.01, maxsize: int = 1):
         self.__is_connected = False
 
         self.__from_node = from_node
