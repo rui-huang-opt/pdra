@@ -47,15 +47,13 @@ class Node(threading.Thread):
 
 
 class Edge(queue.Queue):
-    def __init__(self, from_node: 'Node', to_node: 'Node', with_noise: bool = False,
-                 noise_scale: int or float = 0.01, maxsize: int = 1):
+    def __init__(self, from_node: 'Node', to_node: 'Node', noise_scale: int or float = None, maxsize: int = 1):
         self.__is_connected = False
 
         self.__from_node = from_node
         self.__to_node = to_node
         self.connect()
 
-        self.__with_noise = with_noise
         self.__noise_scale = noise_scale
 
         super().__init__(maxsize=maxsize)
@@ -77,11 +75,11 @@ class Edge(queue.Queue):
             self.__is_connected = False
 
     def send(self, data: np.ndarray) -> None:
-        if self.__with_noise:
-            noise = np.random.normal(loc=0, scale=self.__noise_scale, size=data.size)
-            self.put(data + noise)
-        else:
+        if self.__noise_scale is None:
             self.put(data)
+        else:
+            noise = np.random.normal(scale=self.__noise_scale, size=data.size)
+            self.put(data + noise)
 
     def recv(self) -> np.ndarray:
         return self.get()
