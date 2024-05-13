@@ -2,7 +2,7 @@ import numpy as np
 
 
 class TruncatedLaplaceError(Exception):
-    pass
+    ...
 
 
 class TruncatedLaplace(object):

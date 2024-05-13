@@ -124,7 +124,7 @@ class NodeDRABase(dissys.Node, metaclass=ABCMeta):
 
 
 class Edge(dissys.Edge):
-    pass
+    ...
 
 
 def resource_perturbation(epsilon: int or float,
