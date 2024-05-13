@@ -8,45 +8,51 @@ class Node(threading.Thread):
     def __init__(self):
         super().__init__()
 
-        self.__in_edges: List['Edge'] = []
-        self.__out_edges: List['Edge'] = []
+        self.__in_edges: List['DiEdge'] = []
+        self.__out_edges: List['DiEdge'] = []
 
         self.__in_degree: int = 0
         self.__out_degree: int = 0
 
     @property
-    def out_degree(self) -> int:
-        return self.__out_degree
-
-    @property
     def in_degree(self) -> int:
         return self.__in_degree
 
-    def append_out_edge(self, edge: 'Edge') -> None:
+    @property
+    def out_degree(self) -> int:
+        return self.__out_degree
+
+    def append_out_edge(self, edge: 'DiEdge') -> None:
         self.__out_edges.append(edge)
         self.__out_degree += 1
 
-    def append_in_edge(self, edge: 'Edge') -> None:
+    def append_in_edge(self, edge: 'DiEdge') -> None:
         self.__in_edges.append(edge)
         self.__in_degree += 1
 
-    def remove_out_edge(self, edge: 'Edge') -> None:
+    def remove_out_edge(self, edge: 'DiEdge') -> None:
         self.__out_edges.remove(edge)
         self.__out_degree -= 1
 
-    def remove_in_edge(self, edge: 'Edge') -> None:
+    def remove_in_edge(self, edge: 'DiEdge') -> None:
         self.__in_edges.remove(edge)
         self.__in_degree -= 1
 
-    def send_to_neighbors(self, data: np.ndarray) -> None:
+    def send_to_neighbor(self, index: int, data: np.ndarray) -> None:
+        self.__out_edges[index].send(data)
+
+    def receive_from_neighbor(self, index: int) -> np.ndarray:
+        return self.__in_edges[index].receive()
+
+    def broadcast_to_all_neighbors(self, data: np.ndarray) -> None:
         for edge in self.__out_edges:
             edge.send(data)
 
-    def recv_from_neighbors(self) -> List[np.ndarray]:
-        return [edge.recv() for edge in self.__in_edges]
+    def receive_from_all_neighbors(self) -> List[np.ndarray]:
+        return [edge.receive() for edge in self.__in_edges]
 
 
-class Edge(queue.Queue):
+class DiEdge(queue.Queue):
     def __init__(self, from_node: 'Node', to_node: 'Node', noise_scale: int or float = None, maxsize: int = 1):
         self.__is_connected = False
 
@@ -81,5 +87,23 @@ class Edge(queue.Queue):
             noise = np.random.normal(scale=self.__noise_scale, size=data.size)
             self.put(data + noise)
 
-    def recv(self) -> np.ndarray:
+    def receive(self) -> np.ndarray:
         return self.get()
+
+
+class Edge:
+    def __init__(self, node_1: 'Node', node_2: 'Node', noise_scale: int or float = None, maxsize: int = 1):
+        self.__edge_1 = DiEdge(node_1, node_2, noise_scale, maxsize)
+        self.__edge_2 = DiEdge(node_2, node_1, noise_scale, maxsize)
+
+    @property
+    def is_connected(self) -> bool:
+        return self.__edge_1.is_connected & self.__edge_2.is_connected
+
+    def connect(self) -> None:
+        self.__edge_1.connect()
+        self.__edge_2.connect()
+
+    def disconnect(self) -> None:
+        self.__edge_1.disconnect()
+        self.__edge_2.disconnect()

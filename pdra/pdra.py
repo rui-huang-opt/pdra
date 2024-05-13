@@ -96,8 +96,8 @@ class NodeDRABase(dissys.Node, metaclass=ABCMeta):
     def run(self) -> None:
         for k in range(self.iterations):
             # Exchange the information of y with neighbors
-            self.send_to_neighbors(self.y_i)
-            y_j_all = self.recv_from_neighbors()
+            self.broadcast_to_all_neighbors(self.y_i)
+            y_j_all = self.receive_from_all_neighbors()
 
             # Calculate l_i @ y through summing up y_i - y_j for all j belonging to N_i,
             # where N_i is the set of neighbors
@@ -109,8 +109,8 @@ class NodeDRABase(dissys.Node, metaclass=ABCMeta):
             c_i = self.prob.constraints[0].dual_value
 
             # Exchange the information of c_i with neighbors
-            self.send_to_neighbors(c_i)
-            c_j_all = self.recv_from_neighbors()
+            self.broadcast_to_all_neighbors(c_i)
+            c_j_all = self.receive_from_all_neighbors()
 
             # Calculate the (sub)gradient, l_i @ c
             li_c = c_i * self.in_degree - sum(c_j_all)

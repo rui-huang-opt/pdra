@@ -162,9 +162,7 @@ if __name__ == '__main__':
         Nodes['1'] = NodeDQP(Q['1'], g['1'], T, step_size, A['1'], b_i=b_bar)
 
         # Build up communication edges
-        Edges = {e[0] + '<->' + e[1]: (pdra.Edge(Nodes[e[0]], Nodes[e[1]]),
-                                       pdra.Edge(Nodes[e[1]], Nodes[e[0]]))
-                 for e in Edges_set}
+        Edges = {e[0] + '<->' + e[1]: pdra.Edge(Nodes[e[0]], Nodes[e[1]]) for e in Edges_set}
 
         # Disconnect edge 1<->2
         # Edges['1<->2'][0].disconnect()
@@ -267,9 +265,7 @@ if __name__ == '__main__':
         Nodes = {i: NodeCP(c_profit[i], x_laboratory[i], T, step_size, A_material[i]) for i in Nodes_set if i != '1'}
         Nodes['1'] = NodeCP(c_profit['1'], x_laboratory['1'], T, step_size, A_material['1'], b_i=b_material_bar)
 
-        Edges = {e: (pdra.Edge(Nodes[e[0]], Nodes[e[1]]),
-                     pdra.Edge(Nodes[e[1]], Nodes[e[0]]))
-                 for e in Edges_set}
+        Edges = {f'{e[0]}<->{e[1]}': pdra.Edge(Nodes[e[1]], Nodes[e[0]]) for e in Edges_set}
 
         for Node in Nodes.values():
             Node.start()

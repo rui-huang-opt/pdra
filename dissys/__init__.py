@@ -1,1 +1,1 @@
-from .dissys import Node, Edge
+from .dissys import Node, DiEdge, Edge
