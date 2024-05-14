@@ -98,7 +98,7 @@ class Edge:
 
     @property
     def is_connected(self) -> bool:
-        return self.__edge_1.is_connected & self.__edge_2.is_connected
+        return self.__edge_1.is_connected and self.__edge_2.is_connected
 
     def connect(self) -> None:
         self.__edge_1.connect()
