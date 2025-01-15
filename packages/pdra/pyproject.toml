@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdra"
+version = "0.1.0"
+description = "Private Distributed Resource Allocation"
+authors = [
+    {name = "Rui Huang", email = "R.Huang@lboro.ac.uk"}
+]

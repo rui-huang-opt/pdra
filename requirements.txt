@@ -5,7 +5,6 @@ cvxpy==1.4.3
 cycler==0.12.1
 ecos==2.0.14
 fonttools==4.55.3
-./packages/gossip
 importlib_resources==6.5.2
 kiwisolver==1.4.7
 matplotlib==3.7.4
@@ -13,15 +12,15 @@ networkx==3.2.1
 numpy==1.26.4
 osqp==0.6.7.post3
 packaging==24.2
-./packages/pdra
 pillow==11.1.0
 pybind11==2.13.6
 pyparsing==3.2.1
 python-dateutil==2.9.0.post0
-python-dotenv==1.0.1
 qdldl==0.1.7.post5
 scipy==1.13.1
 scs==3.2.7.post2
 six==1.17.0
-./packages/truncated_laplace
+toml==0.10.2
 zipp==3.21.0
+packages/pdra
+packages/gossip

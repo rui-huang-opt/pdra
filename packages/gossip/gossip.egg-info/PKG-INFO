@@ -1,3 +1,5 @@
 Metadata-Version: 2.2
 Name: gossip
 Version: 0.1.0
+Summary: Gossip Protocol
+Author-email: Rui Huang <R.Huang@lboro.ac.uk>

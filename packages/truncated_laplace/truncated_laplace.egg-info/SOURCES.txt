@@ -1,7 +1,0 @@
-setup.py
-truncated_laplace/__init__.py
-truncated_laplace/truncated_laplace.py
-truncated_laplace.egg-info/PKG-INFO
-truncated_laplace.egg-info/SOURCES.txt
-truncated_laplace.egg-info/dependency_links.txt
-truncated_laplace.egg-info/top_level.txt

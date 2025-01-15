@@ -1,4 +1,4 @@
-setup.py
+pyproject.toml
 gossip/__init__.py
 gossip/gossip.py
 gossip.egg-info/PKG-INFO
