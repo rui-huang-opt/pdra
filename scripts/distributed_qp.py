@@ -7,7 +7,7 @@ from typing import Dict
 from numpy.typing import NDArray
 from functools import partial
 from gossip import create_gossip_network
-from pdra import Node
+from pdra import Node, TruncatedLaplace
 
 if __name__ == "__main__":
     """
@@ -90,29 +90,59 @@ if __name__ == "__main__":
 
         fig_1.savefig("../figures/dqp/fig_1.png", dpi=300, bbox_inches="tight")
 
-        result = {i: np.load(f"../data/dqp/result/node_{i}.npz") for i in NODES}
+        plt.rcParams["text.usetex"] = True
+        plt.rcParams["text.latex.preamble"] = "\\usepackage{amsmath}"
+        plt.rcParams["font.family"] = "Times New Roman"
 
-        f_i_series = {node: result[node]["f_i_series"] for node in NODES}
-        err_series = sum(f_i_series.values()) - F_star
+        results = {i: np.load(f"../data/dqp/results/node_{i}.npz") for i in NODES}
+
+        f_i_series = {i: results[i]["f_i_series"] for i in NODES}
 
         fig_2, ax_2 = plt.subplots()
+        err_series = sum(f_i_series.values()) - F_star
 
-        ax_2.plot(err_series, label="Distributed Quadratic Programming")
-        ax_2.set_xlabel("Iteration")
-        ax_2.set_ylabel("Error")
-        ax_2.legend()
+        ax_2.plot(err_series)
+
+        ax_2.set_xlabel('Iteration number $k$', fontsize=15)
 
         fig_2.savefig("../figures/dqp/fig_2.png", dpi=300, bbox_inches="tight")
+
+        fig_3, ax_3 = plt.subplots()
+        c_series: Dict[str, NDArray[np.float64]] = {
+            i: results[i]["c_i_series"] for i in NODES
+        }
+
+        for i in NODES:
+            for j in range(c_series[i].shape[0]):
+                ax_3.plot(c_series[i][j])
+
+        fig_3.savefig(f"../figures/dqp/fig_3_{i}.png", dpi=300, bbox_inches="tight")
+
+        fig_4, ax_4 = plt.subplots()
+        x_series: Dict[str, NDArray[np.float64]] = {
+            i: results[i]["x_i_series"] for i in NODES
+        }
+
+        constraint_values = sum([A[i] @ x_series[i] for i in NODES]) - b[:, np.newaxis]
+
+        for i in range(constraint_values.shape[0]):
+            ax_4.plot(constraint_values[i])
+
+        fig_4.savefig("../figures/dqp/fig_4.png", dpi=300, bbox_inches="tight")
 
     else:
         """
         Resource perturbation and distributed resource allocation
         """
-        # epsilon = 0.5
-        # delta = 0.005
-        # Delta = 0.002
+        epsilon = 0.5
+        delta = 0.005
+        Delta = 0.002
 
-        # b_bar = pdra.resource_perturbation(epsilon, delta, Delta, b)
+        np.random.seed(0)
+
+        s = (Delta / epsilon) * np.log(b.size * (np.exp(epsilon) - 1) / delta + 1)
+        truncated_laplace = TruncatedLaplace(-s, s, 0, Delta / epsilon)
+        b_bar = b - s * np.ones(b.size) + truncated_laplace(b.size)
 
         gossip_network = create_gossip_network(NODES, EDGES)
 
@@ -124,7 +154,7 @@ if __name__ == "__main__":
             for i in NODES
         ]
 
-        nodes[0].set_resource(b)
+        nodes[0].set_resource(b_bar)
 
         for node in nodes:
             node.start()

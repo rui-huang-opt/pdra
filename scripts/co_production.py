@@ -72,7 +72,7 @@ if __name__ == "__main__":
         fig_1.savefig("../figures/cp/fig_1.png", dpi=300, bbox_inches="tight")
 
         result = {
-            i: np.load(f"../data/cp/result/node_{i}.npz") for i in NODES
+            i: np.load(f"../data/cp/results/node_{i}.npz") for i in NODES
         }
 
         f_i_series = {i: result[i]["f_i_series"] for i in NODES}

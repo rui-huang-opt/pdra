@@ -40,7 +40,7 @@ iterations = 2000
 step_size = 3.0
 method = "AGM"
 solver = "OSQP"
-result_path = "../data/dqp/result"
+result_path = "../data/dqp/results"
 
 [CP]
 NODES = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"]
@@ -83,4 +83,4 @@ iterations = 3000
 step_size = 10.0
 method = "SM"
 solver = "GLPK"
-result_path = "../data/cp/result"
+result_path = "../data/cp/results"
