@@ -85,4 +85,4 @@ python distributed_qp.py
 # python co_production.py
 ```
 
-**Note:** Since the code utilizes multiprocessing, we recommend running it on a Linux system as it handles multiprocessing more efficiently..
+**Note:** Since the code utilizes multiprocessing, we recommend running it on a Linux system as it handles multiprocessing more efficiently.
