@@ -7,7 +7,7 @@ This project is for the numerical experiments of the algorithm proposed in Priva
 To get started, first clone the repository and install the required dependencies:
 ```bash
 git clone https://github.com/rui-huang-opt/PDRA.git
-cd pdra
+cd PDRA
 ```
 
 #### Installing Dependency
