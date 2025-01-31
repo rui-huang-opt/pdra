@@ -98,7 +98,9 @@ if __name__ == "__main__":
         err_series = sum(f_i_series.values()) - F_star
 
         ax2.step(
-            iterations, err_series, label=r"$P(\boldsymbol{x}^*)-P(\boldsymbol{x}_k)$"
+            iterations,
+            err_series,
+            label=r"$P(\boldsymbol{x}^*)-P(\boldsymbol{x}^{(k)})$",
         )
 
         ax2.set_xlabel("Iteration number $k$")
@@ -145,7 +147,7 @@ if __name__ == "__main__":
         )
 
         for i in range(constraint_values.shape[0]):
-            ax4.step(iterations, constraint_values[i], label=f"material {i}")
+            ax4.step(iterations, constraint_values[i], label=f"material {i + 1}")
 
         ax4.set_xlabel("Iteration number $k$")
         ax4.legend()
@@ -158,7 +160,9 @@ if __name__ == "__main__":
         )
 
     else:
-        # Resource perturbation
+        """
+        Resource perturbation
+        """
         epsilon = 0.5
         delta = 0.005
         Delta = 0.1
@@ -167,13 +171,15 @@ if __name__ == "__main__":
         truncated_laplace = TruncatedLaplace(-s, s, 0, Delta / epsilon)
         b_mat_bar = b_mat - s * np.ones(b_mat.size) + truncated_laplace(b_mat.size)
 
+        """
+        Distributed resource allocation
+        """
         def f(x_i: cp.Variable, index: str) -> cp.Expression:
             return -c_pro[index] @ x_i
 
         def g(x_i: cp.Variable, index: str) -> cp.Expression:
             return x_i - x_lab[index]
 
-        # Distributed resource allocation
         gossip_network = create_gossip_network(NODES, EDGES)
         nodes = [
             Node(

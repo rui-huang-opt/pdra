@@ -111,7 +111,7 @@ if __name__ == "__main__":
         err_series = sum(f_i_series.values()) - F_star
 
         ax2.step(
-            iterations, err_series, label=r"$F(\boldsymbol{x}_k)-F(\boldsymbol{x}^*)$"
+            iterations, err_series, label=r"$F(\boldsymbol{x}^{(k)})-F(\boldsymbol{x}^*)$"
         )
 
         ax2.set_xlabel("Iteration number $k$")
@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
     else:
         """
-        Resource perturbation and distributed resource allocation
+        Resource perturbation
         """
         epsilon = 0.5
         delta = 0.005
@@ -191,6 +191,9 @@ if __name__ == "__main__":
         truncated_laplace = TruncatedLaplace(-s, s, 0, Delta / epsilon)
         b_bar = b - s * np.ones(b.size) + truncated_laplace(b.size)
 
+        """
+        Distributed resource allocation
+        """
         gossip_network = create_gossip_network(NODES, EDGES)
 
         def f(x: cp.Variable, index: str) -> cp.Expression:
