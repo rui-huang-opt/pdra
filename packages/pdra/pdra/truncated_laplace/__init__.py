@@ -1,1 +1,1 @@
-from .truncated_laplace import TruncatedLaplaceError, TruncatedLaplace
+from .truncated_laplace import TruncatedLaplace
