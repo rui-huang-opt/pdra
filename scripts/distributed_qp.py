@@ -209,5 +209,5 @@ if __name__ == "__main__":
         for node in nodes:
             node.start()
 
-        for Node in nodes:
+        for node in nodes:
             node.join()

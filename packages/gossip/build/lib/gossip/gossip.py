@@ -6,6 +6,14 @@ from multiprocessing.connection import Connection
 
 
 class Gossip:
+    """
+    A class to manage the gossip protocol for a node in a distributed network.
+
+    This class manages communication between nodes in a gossip network.
+    It allows sending and receiving messages to/from neighbors, broadcasting
+    messages to all neighbors, and gathering messages from all neighbors.
+    """
+
     def __init__(self, connections: Dict[str, Connection] = None):
         self.connections = connections if connections is not None else {}
 
@@ -40,6 +48,9 @@ class Gossip:
 def create_gossip_network(
     nodes: List[str], edges: List[Tuple[str, str]]
 ) -> Dict[str, Gossip]:
+    """
+    Create a gossip network from a list of nodes and edges.
+    """
     gossips = {node: Gossip() for node in nodes}
 
     for edge in edges:
