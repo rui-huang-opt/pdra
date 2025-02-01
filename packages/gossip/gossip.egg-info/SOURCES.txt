@@ -1,7 +1,0 @@
-pyproject.toml
-gossip/__init__.py
-gossip/gossip.py
-gossip.egg-info/PKG-INFO
-gossip.egg-info/SOURCES.txt
-gossip.egg-info/dependency_links.txt
-gossip.egg-info/top_level.txt
