@@ -82,7 +82,7 @@ class Node(Process):
 
     def save_result(self):
         np.savez(
-            f"{self.configuration["result_path"]}/node_{self.name}.npz",
+            f"{self.configuration['result_path']}/node_{self.name}.npz",
             f_i_series=self.f_i_series,
             x_i_series=self.x_i_series,
             c_i_series=self.c_i_series,
