@@ -33,7 +33,6 @@ class Node(Process):
 
         self.configuration = configuration
 
-        # n_ccons: number of coupling constraints, n_dim: dimension
         self.n_ccons, self.n_dim = a_i.shape
 
         self.x_i = cp.Variable(self.n_dim)
@@ -65,13 +64,16 @@ class Node(Process):
         a_i: NDArray[np.float64],
         g_i: Callable[[cp.Variable], cp.Expression],
     ) -> cp.Problem:
-        # The local optimization problem is modeled as
-        #
-        # min  f_i(x_i)
-        # s.t. a_i @ x_i + l_i @ y - b_i <= 0,
-        #      g_i(x_i) <= 0 (if exists).
-        #
-        # The value of b_i will be set to 0 if the node don't receive the information of the resource
+        """
+        The local optimization problem is modeled as
+
+        min  f_i(x_i)
+
+        s.t. a_i @ x_i + l_i @ y <= b_i,
+             g_i(x_i) <= 0 (if exists).
+
+        The value of b_i will be set to 0 if the node don't receive the information of the resource
+        """
         cost = f_i(self.x_i)
         constraints = [a_i @ self.x_i + self.li_y - self._b_i <= 0]
 
