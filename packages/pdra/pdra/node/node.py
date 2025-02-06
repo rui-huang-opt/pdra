@@ -9,6 +9,23 @@ from .gradient_method import GradientMethodRegistry
 
 
 class Configuration(TypedDict):
+    """
+    Configuration dictionary for the node.
+
+    Arguments
+    ----------
+    iterations : int
+        Number of iterations for the update of the auxiliary variable.
+    step_size : Real
+        Step size for the update of the auxiliary variable.
+    method : str
+        Method for the update of the auxiliary variable.
+    solver : str
+        Solver for the local optimization problem.
+    result_path : str
+        Path for saving the result.
+    """
+    
     iterations: int
     step_size: Real
     method: str
@@ -16,8 +33,26 @@ class Configuration(TypedDict):
     result_path: str
 
 
-# Distributed resource allocation
 class Node(Process):
+    """
+    Node class for distributed resource allocation problem.
+
+    Arguments
+    ----------
+    name : str
+        Node name.
+    configuration : Configuration
+        Configuration dictionary for the node.
+    communication : Gossip
+        Communication object, which is used for handling the gossip communication.
+    f_i : Callable[[cp.Variable], cp.Expression]
+        Local objective function.
+    a_i : NDArray[np.float64]
+        Coupling constraints matrix.
+    g_i : Callable[[cp.Variable], cp.Expression], optional
+        Local constraints function.
+    """
+
     def __init__(
         self,
         name: str,

@@ -7,6 +7,15 @@ from typing import Type, Dict
 
 # Gradient-based method
 class GradientMethod(metaclass=ABCMeta):
+    """
+    Abstract class for gradient-based methods, including accelerated gradient method and subgradient method.
+
+    Arguments
+    ----------
+    step_size : Real
+        Step size for the update of the variable.
+    """
+
     def __init__(self, step_size: Real):
         self.step_size = step_size
 
@@ -17,6 +26,10 @@ class GradientMethod(metaclass=ABCMeta):
 
 
 class GradientMethodRegistry:
+    """
+    Registry for gradient-based methods.
+    """
+
     _methods: Dict[str, Type[GradientMethod]] = {}
 
     @classmethod
@@ -38,6 +51,10 @@ class GradientMethodRegistry:
 # Accelerated gradient method
 @GradientMethodRegistry.register("AGM")
 class AcceleratedGradientMethod(GradientMethod):
+    """
+    Accelerated gradient method.
+    """
+
     def __init__(self, step_size: Real):
         super().__init__(step_size)
 
@@ -58,6 +75,10 @@ class AcceleratedGradientMethod(GradientMethod):
 # Subgradient method
 @GradientMethodRegistry.register("SM")
 class SubgradientMethod(GradientMethod):
+    """
+    Subgradient method.
+    """
+    
     def __init__(self, step_size: Real):
         super().__init__(step_size)
 

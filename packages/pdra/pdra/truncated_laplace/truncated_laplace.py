@@ -5,6 +5,21 @@ from typing import Union
 
 
 class TruncatedLaplace(object):
+    """
+    Truncated Laplace Distribution.
+
+    Arguments
+    ----------
+    low : Real
+        Lower bound of the distribution.
+    high : Real
+        Upper bound of the distribution.
+    location : Real
+        Mean parameter of the distribution.
+    scale : Real
+        Variance parameter of the distribution.
+    """
+
     def __init__(
         self,
         low: Real,
