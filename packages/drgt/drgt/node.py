@@ -1,6 +1,6 @@
 from multiprocessing import Process
 
 
-class Node:
+class Node(Process):
     def __init__(self):
-        pass
+        super().__init__()
