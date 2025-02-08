@@ -168,12 +168,13 @@ if __name__ == "__main__":
         Delta = 0.1
 
         s = (Delta / epsilon) * np.log(b_mat.size * (np.exp(epsilon) - 1) / delta + 1)
-        truncated_laplace = TruncatedLaplace(-s, s, 0, Delta / epsilon)
-        b_mat_bar = b_mat - s * np.ones(b_mat.size) + truncated_laplace(b_mat.size)
+        tl = TruncatedLaplace(-s, s, 0, Delta / epsilon)
+        b_mat_bar = b_mat - s * np.ones(b_mat.size) + tl.sample(b_mat.size)
 
         """
         Distributed resource allocation
         """
+
         def f(x_i: cp.Variable, index: str) -> cp.Expression:
             return -c_pro[index] @ x_i
 

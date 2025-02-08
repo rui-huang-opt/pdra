@@ -111,7 +111,9 @@ if __name__ == "__main__":
         err_series = sum(f_i_series.values()) - F_star
 
         ax2.step(
-            iterations, err_series, label=r"$F(\boldsymbol{x}^{(k)})-F(\boldsymbol{x}^*)$"
+            iterations,
+            err_series,
+            label=r"$F(\boldsymbol{x}^{(k)})-F(\boldsymbol{x}^*)$",
         )
 
         ax2.set_xlabel("Iteration number $k$")
@@ -143,7 +145,7 @@ if __name__ == "__main__":
 
         for i in NODES:
             for j in range(c_series[i].shape[0]):
-                line, = ax3.step(iterations, c_series[i][j], color=colors[i])
+                (line,) = ax3.step(iterations, c_series[i][j], color=colors[i])
 
             line.set_label(f"node {i}")
 
@@ -188,8 +190,8 @@ if __name__ == "__main__":
         np.random.seed(0)
 
         s = (Delta / epsilon) * np.log(b.size * (np.exp(epsilon) - 1) / delta + 1)
-        truncated_laplace = TruncatedLaplace(-s, s, 0, Delta / epsilon)
-        b_bar = b - s * np.ones(b.size) + truncated_laplace(b.size)
+        tl = TruncatedLaplace(-s, s, 0, Delta / epsilon)
+        b_bar = b - s * np.ones(b.size) + tl.sample(b.size)
 
         """
         Distributed resource allocation

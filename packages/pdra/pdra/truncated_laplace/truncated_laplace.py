@@ -78,7 +78,7 @@ class TruncatedLaplace(object):
 
         return rand1
 
-    def __call__(self, dim: int = 1) -> Union[Real, NDArray[np.float64]]:
+    def sample(self, dim: int = 1) -> Union[Real, NDArray[np.float64]]:
         if dim == 1:
             res = self.get_random_scalar_value()
         else:
