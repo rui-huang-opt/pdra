@@ -100,14 +100,28 @@ class Node(Process):
         g_i: Callable[[cp.Variable], cp.Expression],
     ) -> cp.Problem:
         """
-        The local optimization problem is modeled as
+        The local optimization problem is defined as:
 
         min  f_i(x_i)
 
         s.t. a_i @ x_i + l_i @ y <= b_i,
              g_i(x_i) <= 0 (if exists).
 
-        The value of b_i will be set to 0 if the node don't receive the information of the resource
+        The value of b_i will be set to 0 if the node don't receive the information of the resource.
+
+        Arguments
+        ----------
+        f_i : Callable[[cp.Variable], cp.Expression]
+            Local objective function.
+        a_i : NDArray[np.float64]
+            Coupling constraints matrix.
+        g_i : Callable[[cp.Variable], cp.Expression]
+            Local constraints function.
+
+        Returns
+        ----------
+        cp.Problem
+            Local optimization problem for the node.
         """
         cost = f_i(self.x_i)
         constraints = [a_i @ self.x_i + self.li_y - self._b_i <= 0]
