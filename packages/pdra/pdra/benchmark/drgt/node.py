@@ -1,7 +1,6 @@
 import numpy as np
 import cvxpy as cp
-from numbers import Real
-from typing import Callable, TypedDict
+from typing import Callable, TypedDict, List
 from numpy.typing import NDArray
 from multiprocessing import Process
 from gossip import Gossip
@@ -9,7 +8,10 @@ from gossip import Gossip
 
 class Configuration(TypedDict):
     iterations: int
-    step_size: float
+    gamma: float
+    phi: float
+    row_weights: List[float]
+    col_weights: List[float]
     method: str
     solver: str
     result_path: str
@@ -82,7 +84,7 @@ class Node(Process):
         constraints = [] if g_i is None else [g_i(self.omega_i) <= 0]
 
         return cp.Problem(cp.Minimize(objective), constraints)
-    
+
     def run(self):
         for k in range(self.config["iterations"]):
             self.comm.broadcast(self.s_i)
