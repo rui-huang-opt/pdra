@@ -1,1 +1,0 @@
-from .gossip import create_gossip_network, Gossip
