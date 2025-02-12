@@ -10,3 +10,8 @@ description = "Private Distributed Resource Allocation"
 authors = [
     {name = "Rui Huang", email = "R.Huang@lboro.ac.uk"}
 ]
+
+dependencies = [
+    "cvxpy>=1.4.3",
+    "gossip @ ../gossip",
+]

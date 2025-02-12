@@ -10,3 +10,7 @@ description = "Gossip Protocol"
 authors = [
     {name = "Rui Huang", email = "R.Huang@lboro.ac.uk"}
 ]
+
+dependencies = [
+    "numpy>=1.26.4",
+]
