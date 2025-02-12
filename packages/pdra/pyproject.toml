@@ -13,5 +13,5 @@ authors = [
 
 dependencies = [
     "cvxpy>=1.4.3",
-    "gossip @ ../gossip",
+    "gossip>=0.1.0",
 ]
