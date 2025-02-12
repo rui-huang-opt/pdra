@@ -168,7 +168,7 @@ class Node(Process):
         result_path = self.config["result_path"]
         np.savez(f"{result_path}/node_{self.name}.npz", **results)
 
-    def update(self):
+    def perform_iteration(self):
         self.comm.broadcast(self.y_i)
         y_j_all = self.comm.gather()
 
@@ -189,7 +189,7 @@ class Node(Process):
         results = self.initialize_results()
 
         for k in range(self.config["iterations"]):
-            self.update()
+            self.perform_iteration()
             self.record_results(k, results)
 
         self.save_results(results)
