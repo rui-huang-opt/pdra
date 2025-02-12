@@ -13,6 +13,7 @@ networkx==3.2.1
 numpy==1.26.4
 osqp==0.6.7.post3
 packaging==24.2
+pdra @ git+https://github.com/rui-huang-opt/pdra-core.git
 pillow==11.1.0
 pybind11==2.13.6
 pyparsing==3.2.1
@@ -23,4 +24,3 @@ scs==3.2.7.post2
 six==1.17.0
 toml==0.10.2
 zipp==3.21.0
-pdra @ git+https://github.com/rui-huang-opt/pdra-core.git
