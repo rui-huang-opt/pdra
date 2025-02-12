@@ -1,1 +1,1 @@
-from .dual_decomposition import DualDecomposition
+from .node import Configuration, Node

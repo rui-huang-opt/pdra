@@ -24,13 +24,35 @@ class Configuration(TypedDict):
         Solver for the local optimization problem.
     result_path : str
         Path for saving the result.
+    comm_weight : Real, optional
+        Weight for the communication term, default to None because it is not used in all cases.
     """
-    
+
     iterations: int
     step_size: Real
     method: str
     solver: str
     result_path: str
+    comm_weight: Real = None
+
+
+class Results(TypedDict):
+    """
+    Results dictionary for the node.
+
+    Arguments
+    ----------
+    f_i_series : NDArray[np.float64]
+        Series of local objective function values.
+    x_i_series : NDArray[np.float64]
+        Series of local decision variables.
+    c_i_series : NDArray[np.float64]
+        Series of dual variables.
+    """
+
+    f_i_series: NDArray[np.float64]
+    x_i_series: NDArray[np.float64]
+    c_i_series: NDArray[np.float64]
 
 
 class Node(Process):
@@ -41,10 +63,10 @@ class Node(Process):
     ----------
     name : str
         Node name.
-    configuration : Configuration
+    config : Configuration
         Configuration dictionary for the node.
-    communication : Gossip
-        Communication object, which is used for handling the gossip communication.
+    comm : Gossip
+        Communicator for the node, using the gossip protocol.
     f_i : Callable[[cp.Variable], cp.Expression]
         Local objective function.
     a_i : NDArray[np.float64]
@@ -56,8 +78,8 @@ class Node(Process):
     def __init__(
         self,
         name: str,
-        configuration: Configuration,
-        communication: Gossip,
+        config: Configuration,
+        comm: Gossip,
         f_i: Callable[[cp.Variable], cp.Expression],  # Local objective
         a_i: NDArray[np.float64],  # Coupling constraints matrix
         g_i: Callable[[cp.Variable], cp.Expression] = None,  # Local constraints
@@ -66,7 +88,7 @@ class Node(Process):
 
         self.name = name
 
-        self.configuration = configuration
+        self.config = config
 
         self.n_ccons, self.n_dim = a_i.shape
 
@@ -76,21 +98,20 @@ class Node(Process):
         # l_i @ y, where l_i is the ith row of laplacian matrix L
         self.li_y = cp.Parameter(self.n_ccons)
         self.update_y_i = GradientMethodRegistry.get(
-            configuration["method"], configuration["step_size"]
+            config["method"], config["step_size"]
         )
 
-        self.communication = communication
+        self.comm = comm
 
         # Only certain node can get the information of the resource, others will set b_i to 0 by default
         self._b_i = cp.Parameter(self.n_ccons, value=np.zeros(self.n_ccons))
 
-        self.prob = self.setup_local_problem(f_i, a_i, g_i)
-
-        self.f_i_series = np.zeros(configuration["iterations"])
-        self.x_i_series = np.zeros((self.n_dim, configuration["iterations"]))
-        self.c_i_series = np.zeros((self.n_ccons, configuration["iterations"]))
+        self.local_problem = self.setup_local_problem(f_i, a_i, g_i)
 
     def set_resource(self, b_i: NDArray[np.float64]):
+        if b_i.ndim != 1 or b_i.shape[0] != self.n_ccons:
+            raise ValueError("Invalid shape for resource allocation.")
+
         self._b_i.value = b_i
 
     def setup_local_problem(
@@ -131,34 +152,44 @@ class Node(Process):
 
         return cp.Problem(cp.Minimize(cost), constraints)
 
-    def save_result(self):
-        np.savez(
-            f"{self.configuration['result_path']}/node_{self.name}.npz",
-            f_i_series=self.f_i_series,
-            x_i_series=self.x_i_series,
-            c_i_series=self.c_i_series,
-        )
+    def initialize_results(self) -> Results:
+        return {
+            "f_i_series": np.zeros(self.config["iterations"]),
+            "x_i_series": np.zeros((self.n_dim, self.config["iterations"])),
+            "c_i_series": np.zeros((self.n_ccons, self.config["iterations"])),
+        }
+
+    def record_results(self, k: int, results: Results):
+        results["f_i_series"][k] = self.local_problem.value
+        results["x_i_series"][:, k] = self.x_i.value
+        results["c_i_series"][:, k] = self.local_problem.constraints[0].dual_value
+
+    def save_results(self, results: Results):
+        result_path = self.config["result_path"]
+        np.savez(f"{result_path}/node_{self.name}.npz", **results)
+
+    def update(self):
+        self.comm.broadcast(self.y_i)
+        y_j_all = self.comm.gather()
+
+        self.li_y.value = self.y_i * self.comm.degree - sum(y_j_all)
+
+        self.local_problem.solve(solver=self.config["solver"])
+
+        c_i = self.local_problem.constraints[0].dual_value
+
+        self.comm.broadcast(c_i)
+        c_j_all = self.comm.gather()
+
+        li_c = c_i * self.comm.degree - sum(c_j_all)
+
+        self.y_i = self.update_y_i(self.y_i, li_c)
 
     def run(self) -> None:
-        for k in range(self.configuration["iterations"]):
-            self.communication.broadcast(self.y_i)
-            y_j_all = self.communication.gather()
+        results = self.initialize_results()
 
-            self.li_y.value = self.y_i * self.communication.degree - sum(y_j_all)
+        for k in range(self.config["iterations"]):
+            self.update()
+            self.record_results(k, results)
 
-            self.prob.solve(solver=self.configuration["solver"])
-
-            c_i = self.prob.constraints[0].dual_value
-
-            self.communication.broadcast(c_i)
-            c_j_all = self.communication.gather()
-
-            li_c = c_i * self.communication.degree - sum(c_j_all)
-
-            self.y_i = self.update_y_i(self.y_i, li_c)
-
-            self.f_i_series[k] = self.prob.value
-            self.x_i_series[:, k] = self.x_i.value
-            self.c_i_series[:, k] = c_i
-
-        self.save_result()
+        self.save_results(results)

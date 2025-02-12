@@ -1,3 +1,3 @@
-class PrimalDual:
+class Node:
     def __init__(self):
         pass
