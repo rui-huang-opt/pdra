@@ -5,6 +5,7 @@ cvxpy==1.4.3
 cycler==0.12.1
 ecos==2.0.14
 fonttools==4.55.3
+gossip @ git+https://github.com/rui-huang-opt/gossip.git@4687b035455b432a8d9e8112fcfde3c08daf414e
 importlib_resources==6.5.2
 kiwisolver==1.4.7
 matplotlib==3.7.4
@@ -23,4 +24,3 @@ six==1.17.0
 toml==0.10.2
 zipp==3.21.0
 packages/pdra
-packages/gossip
