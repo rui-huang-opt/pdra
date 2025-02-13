@@ -142,7 +142,7 @@ if __name__ == "__main__":
         plt.rcParams["font.size"] = 15
 
         results = {
-            i: np.load(config[EXPERIMENT]["NODE_CONFIG"]["result_path"] + f"/node_{i}.npz")
+            i: np.load(config[EXPERIMENT]["NODE_CONFIG"]["results_path"] + f"/node_{i}.npz")
             for i in NODES
         }
 
