@@ -1,6 +1,4 @@
-# If you want to plot the graph, set GRAPH_PLOT_MODE to true
-# else set it to false, the scripts will run the experiment
-PLOT_MODE = true
+RUN_MODE = "VIS" # "EXP" or "VIS"
 
 [GRPAH_PLOT_OPTIONS]
 with_labels = true

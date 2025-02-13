@@ -63,7 +63,49 @@ if __name__ == "__main__":
 
     F_star = problem.value
 
-    if config["PLOT_MODE"]:
+    if config["RUN_MODE"] == "EXP":
+        """
+        Resource perturbation
+        """
+        epsilon = 0.5
+        delta = 0.005
+        Delta = 0.1
+
+        s = (Delta / epsilon) * np.log(b_mat.size * (np.exp(epsilon) - 1) / delta + 1)
+        tl = TruncatedLaplace(-s, s, 0, Delta / epsilon)
+        b_mat_bar = b_mat - s * np.ones(b_mat.size) + tl.sample(b_mat.size)
+
+        """
+        Distributed resource allocation
+        """
+
+        def f(x_i: cp.Variable, index: str) -> cp.Expression:
+            return -c_pro[index] @ x_i
+
+        def g(x_i: cp.Variable, index: str) -> cp.Expression:
+            return x_i - x_lab[index]
+
+        gossip_network = create_gossip_network(NODES, EDGES)
+        nodes = [
+            Node(
+                i,
+                NODE_CONFIG,
+                gossip_network[i],
+                partial(f, index=i),
+                A_mat[i],
+                partial(g, index=i),
+            )
+            for i in NODES
+        ]
+        nodes[0].set_resource(b_mat_bar)
+
+        for node in nodes:
+            node.start()
+
+        for node in nodes:
+            node.join()
+
+    elif config["RUN_MODE"] == "VIS":
         """
         Plot the graph and the result
         """
@@ -158,45 +200,3 @@ if __name__ == "__main__":
         fig4.savefig(
             f"../figures/{EXPERIMENT}/fig_4_c.pdf", format="pdf", bbox_inches="tight"
         )
-
-    else:
-        """
-        Resource perturbation
-        """
-        epsilon = 0.5
-        delta = 0.005
-        Delta = 0.1
-
-        s = (Delta / epsilon) * np.log(b_mat.size * (np.exp(epsilon) - 1) / delta + 1)
-        tl = TruncatedLaplace(-s, s, 0, Delta / epsilon)
-        b_mat_bar = b_mat - s * np.ones(b_mat.size) + tl.sample(b_mat.size)
-
-        """
-        Distributed resource allocation
-        """
-
-        def f(x_i: cp.Variable, index: str) -> cp.Expression:
-            return -c_pro[index] @ x_i
-
-        def g(x_i: cp.Variable, index: str) -> cp.Expression:
-            return x_i - x_lab[index]
-
-        gossip_network = create_gossip_network(NODES, EDGES)
-        nodes = [
-            Node(
-                i,
-                NODE_CONFIG,
-                gossip_network[i],
-                partial(f, index=i),
-                A_mat[i],
-                partial(g, index=i),
-            )
-            for i in NODES
-        ]
-        nodes[0].set_resource(b_mat_bar)
-
-        for node in nodes:
-            node.start()
-
-        for node in nodes:
-            node.join()

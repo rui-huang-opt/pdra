@@ -74,7 +74,42 @@ if __name__ == "__main__":
 
     F_star = problem.value
 
-    if config["PLOT_MODE"]:
+    if config["RUN_MODE"] == "EXP":
+        """
+        Resource perturbation
+        """
+        epsilon = 0.5
+        delta = 0.005
+        Delta = 0.002
+
+        np.random.seed(0)
+
+        s = (Delta / epsilon) * np.log(b.size * (np.exp(epsilon) - 1) / delta + 1)
+        tl = TruncatedLaplace(-s, s, 0, Delta / epsilon)
+        b_bar = b - s * np.ones(b.size) + tl.sample(b.size)
+
+        """
+        Distributed resource allocation
+        """
+        gossip_network = create_gossip_network(NODES, EDGES)
+
+        def f(x: cp.Variable, index: str) -> cp.Expression:
+            return x @ Q[index] @ x / 2 + g[index] @ x
+
+        nodes = [
+            Node(i, NODE_CONFIG, gossip_network[i], partial(f, index=i), A[i])
+            for i in NODES
+        ]
+
+        nodes[0].set_resource(b_bar)
+
+        for node in nodes:
+            node.start()
+
+        for node in nodes:
+            node.join()
+
+    elif config["RUN_MODE"] == "VIS":
         """
         Plot the graph and the result
         """
@@ -178,38 +213,3 @@ if __name__ == "__main__":
         fig4.savefig(
             f"../figures/{EXPERIMENT}/fig_3_c.pdf", format="pdf", bbox_inches="tight"
         )
-
-    else:
-        """
-        Resource perturbation
-        """
-        epsilon = 0.5
-        delta = 0.005
-        Delta = 0.002
-
-        np.random.seed(0)
-
-        s = (Delta / epsilon) * np.log(b.size * (np.exp(epsilon) - 1) / delta + 1)
-        tl = TruncatedLaplace(-s, s, 0, Delta / epsilon)
-        b_bar = b - s * np.ones(b.size) + tl.sample(b.size)
-
-        """
-        Distributed resource allocation
-        """
-        gossip_network = create_gossip_network(NODES, EDGES)
-
-        def f(x: cp.Variable, index: str) -> cp.Expression:
-            return x @ Q[index] @ x / 2 + g[index] @ x
-
-        nodes = [
-            Node(i, NODE_CONFIG, gossip_network[i], partial(f, index=i), A[i])
-            for i in NODES
-        ]
-
-        nodes[0].set_resource(b_bar)
-
-        for node in nodes:
-            node.start()
-
-        for node in nodes:
-            node.join()
