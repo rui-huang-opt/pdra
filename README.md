@@ -23,7 +23,7 @@ Below are the key sections and settings that you may want to customize:
 #### 1) General Plotting Settings:
 Control whether to plot the graph and customize plot options:
 ```toml
-PLOT_MODE = true  # Set to true to plot the graph, false to only run the experiment.
+RUN_MODE = "VIS"  # Set to VIS to plot the results, CEN to run the centralized optimization, DIS to run the distributed optimziation.
 
 [GRAPH_PLOT_OPTIONS]
 with_labels = true         # Set to true to display labels on the nodes.

@@ -46,24 +46,31 @@ if __name__ == "__main__":
 
     b_mat: NDArray[np.float64] = np.load(f"../data/{EXPERIMENT}/model/b_mat.npy")
 
-    """
-    Centralized optimization
-    """
-    x = {i: cp.Variable(A_mat[i].shape[1]) for i in NODES}
+    if config["RUN_MODE"] == "CEN":
+        """
+        Centralized optimization
+        """
+        x = {i: cp.Variable(A_mat[i].shape[1]) for i in NODES}
 
-    cost = cp.sum([-c_pro[i] @ x[i] for i in NODES])
+        cost = cp.sum([-c_pro[i] @ x[i] for i in NODES])
 
-    lab_constraints = [x[i] - x_lab[i] <= 0 for i in NODES]
-    mat_constraints = [cp.sum([A_mat[i] @ x[i] for i in NODES]) - b_mat <= 0]
+        lab_constraints = [x[i] - x_lab[i] <= 0 for i in NODES]
+        mat_constraints = [cp.sum([A_mat[i] @ x[i] for i in NODES]) - b_mat <= 0]
 
-    constraints = mat_constraints + lab_constraints
+        constraints = mat_constraints + lab_constraints
 
-    problem = cp.Problem(cp.Minimize(cost), constraints)
-    problem.solve(solver="GLPK")
+        problem = cp.Problem(cp.Minimize(cost), constraints)
+        problem.solve(solver="GLPK")
 
-    F_star = problem.value
+        F_star = problem.value
 
-    if config["RUN_MODE"] == "EXP":
+        print(f"Optimal value: {F_star}")
+
+        with open(f"../config.toml", "w") as f:
+            config[EXPERIMENT]["OPT_VAL"] = F_star
+            toml.dump(config, f)
+
+    elif config["RUN_MODE"] == "DIS":
         """
         Resource perturbation
         """
@@ -137,7 +144,7 @@ if __name__ == "__main__":
         f_i_series = {i: results[i]["f_i_series"] for i in NODES}
 
         fig2, ax2 = plt.subplots()
-        err_series = sum(f_i_series.values()) - F_star
+        err_series = sum(f_i_series.values()) - config[EXPERIMENT]["OPT_VAL"]
 
         ax2.step(
             iterations,

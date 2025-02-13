@@ -61,20 +61,27 @@ if __name__ == "__main__":
 
     b = np.array([proportion_of_1, proportion_of_2, proportion_of_3])
 
-    """
-    Centralized optimization
-    """
-    x = {i: cp.Variable(A[i].shape[1]) for i in NODES}
+    if config["RUN_MODE"] == "CEN":
+        """
+        Centralized optimization
+        """
+        x = {i: cp.Variable(A[i].shape[1]) for i in NODES}
 
-    cost = cp.sum([x[i] @ Q[i] @ x[i] / 2 + g[i] @ x[i] for i in NODES])
-    constraints = [cp.sum([A[i] @ x[i] for i in NODES]) - b <= 0]
+        cost = cp.sum([x[i] @ Q[i] @ x[i] / 2 + g[i] @ x[i] for i in NODES])
+        constraints = [cp.sum([A[i] @ x[i] for i in NODES]) - b <= 0]
 
-    problem = cp.Problem(cp.Minimize(cost), constraints)
-    problem.solve(solver="OSQP")
+        problem = cp.Problem(cp.Minimize(cost), constraints)
+        problem.solve(solver="OSQP")
 
-    F_star = problem.value
+        F_star = problem.value
 
-    if config["RUN_MODE"] == "EXP":
+        print(f"Centralized optimal value: {F_star}")
+
+        with open(f"../config.toml", "w") as f:
+            config[EXPERIMENT]["OPT_VAL"] = F_star
+            toml.dump(config, f)
+
+    elif config["RUN_MODE"] == "DIS":
         """
         Resource perturbation
         """
@@ -143,7 +150,7 @@ if __name__ == "__main__":
         f_i_series = {i: results[i]["f_i_series"] for i in NODES}
 
         fig2, ax2 = plt.subplots()
-        err_series = sum(f_i_series.values()) - F_star
+        err_series = sum(f_i_series.values()) - config[EXPERIMENT]["OPT_VAL"]
 
         ax2.step(
             iterations,

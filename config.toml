@@ -1,4 +1,4 @@
-RUN_MODE = "VIS" # "EXP" or "VIS"
+RUN_MODE = "VIS"
 
 [GRPAH_PLOT_OPTIONS]
 with_labels = true
@@ -21,6 +21,7 @@ EDGES = [
     ["6", "8"],
     ["7", "9"]
 ]
+OPT_VAL = -60.92641675724471
 
 [DQP.NODES_POS]
 "1" = [-2.0, 1.0]
@@ -58,6 +59,7 @@ EDGES = [
     ["11", "14"],
     ["13", "15"]
 ]
+OPT_VAL = -62.837151677467475
 
 [CP.NODES_POS]
 "1" =  [-3.0, 1.5 ]
