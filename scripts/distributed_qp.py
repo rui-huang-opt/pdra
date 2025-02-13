@@ -49,11 +49,11 @@ if __name__ == "__main__":
     # D = np.random.choice([1, 2, 3], 1000, p=pr)
     # np.save(rf'../data/{experiment}/model/D.npy', D)
 
-    Q: Dict[str, NDArray[np.float64]] = np.load(f"../data/{EXPERIMENT}/model/Q.npz")
-    g: Dict[str, NDArray[np.float64]] = np.load(f"../data/{EXPERIMENT}/model/g.npz")
-    A: Dict[str, NDArray[np.float64]] = np.load(f"../data/{EXPERIMENT}/model/A.npz")
+    Q: Dict[str, NDArray[np.float64]] = np.load(f"../data/{EXPERIMENT}/Q.npz")
+    g: Dict[str, NDArray[np.float64]] = np.load(f"../data/{EXPERIMENT}/g.npz")
+    A: Dict[str, NDArray[np.float64]] = np.load(f"../data/{EXPERIMENT}/A.npz")
 
-    D: NDArray[np.float64] = np.load(f"../data/{EXPERIMENT}/model/D.npy")
+    D: NDArray[np.float64] = np.load(f"../data/{EXPERIMENT}/D.npy")
 
     proportion_of_1 = D[np.where(D == 1)].size / 1000
     proportion_of_2 = D[np.where(D == 2)].size / 1000
@@ -142,7 +142,8 @@ if __name__ == "__main__":
         plt.rcParams["font.size"] = 15
 
         results = {
-            i: np.load(f"../data/{EXPERIMENT}/results/node_{i}.npz") for i in NODES
+            i: np.load(config[EXPERIMENT]["NODE_CONFIG"]["result_path"] + f"/node_{i}.npz")
+            for i in NODES
         }
 
         iterations = np.arange(1, NODE_CONFIG["iterations"] + 1)

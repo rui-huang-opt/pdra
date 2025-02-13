@@ -40,11 +40,11 @@ if __name__ == "__main__":
     # b_material = np.random.uniform(18, 22, M)
     # np.save(rf'..\data\Collaborative Production\model\b_material.npy', b_material)
 
-    c_pro: NpzFile = np.load(f"../data/{EXPERIMENT}/model/c_pro.npz")
-    A_mat: NpzFile = np.load(f"../data/{EXPERIMENT}/model/A_mat.npz")
-    x_lab: NpzFile = np.load(f"../data/{EXPERIMENT}/model/x_lab.npz")
+    c_pro: NpzFile = np.load(f"../data/{EXPERIMENT}/c_pro.npz")
+    A_mat: NpzFile = np.load(f"../data/{EXPERIMENT}/A_mat.npz")
+    x_lab: NpzFile = np.load(f"../data/{EXPERIMENT}/x_lab.npz")
 
-    b_mat: NDArray[np.float64] = np.load(f"../data/{EXPERIMENT}/model/b_mat.npy")
+    b_mat: NDArray[np.float64] = np.load(f"../data/{EXPERIMENT}/b_mat.npy")
 
     if config["RUN_MODE"] == "CEN":
         """
@@ -138,7 +138,10 @@ if __name__ == "__main__":
         iterations = np.arange(1, NODE_CONFIG["iterations"] + 1)
 
         results = {
-            i: np.load(f"../data/{EXPERIMENT}/results/node_{i}.npz") for i in NODES
+            i: np.load(
+                config[EXPERIMENT]["NODE_CONFIG"]["result_path"] + f"/node_{i}.npz"
+            )
+            for i in NODES
         }
 
         f_i_series = {i: results[i]["f_i_series"] for i in NODES}
