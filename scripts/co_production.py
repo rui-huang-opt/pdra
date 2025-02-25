@@ -9,16 +9,16 @@ from numpy.lib.npyio import NpzFile
 from matplotlib.ticker import MultipleLocator
 from functools import partial
 from gossip import create_gossip_network
-from pdra import Node, TruncatedLaplace
+from pdra import create_node, TruncatedLaplace
 
 if __name__ == "__main__":
-    config = toml.load("../config.toml")
+    configs = toml.load("../configs.toml")
 
     EXPERIMENT = "CP"
-    NODES = config[EXPERIMENT]["NODES"]
-    EDGES = config[EXPERIMENT]["EDGES"]
-    NODES_POS = config[EXPERIMENT]["NODES_POS"]
-    NODE_CONFIG = config[EXPERIMENT]["NODE_CONFIG"]
+    NODES = configs[EXPERIMENT]["NODES"]
+    EDGES = configs[EXPERIMENT]["EDGES"]
+    NODES_POS = configs[EXPERIMENT]["NODES_POS"]
+    NODE_CONFIGS = configs[EXPERIMENT]["NODE_CONFIGS"]
 
     # Generate the model of the problem
     # di = 2
@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     b_mat: NDArray[np.float64] = np.load(f"../data/{EXPERIMENT}/b_mat.npy")
 
-    if config["RUN_MODE"] == "CEN":
+    if configs["RUN_MODE"] == "CEN":
         """
         Centralized optimization
         """
@@ -66,11 +66,11 @@ if __name__ == "__main__":
 
         print(f"Optimal value: {F_star}")
 
-        with open(f"../config.toml", "w") as f:
-            config[EXPERIMENT]["OPT_VAL"] = F_star
-            toml.dump(config, f)
+        with open(f"../configs.toml", "w") as f:
+            configs[EXPERIMENT]["OPT_VAL"] = F_star
+            toml.dump(configs, f)
 
-    elif config["RUN_MODE"] == "DIS":
+    elif configs["RUN_MODE"] == "DIS":
         """
         Resource perturbation
         """
@@ -85,6 +85,7 @@ if __name__ == "__main__":
         """
         Distributed resource allocation
         """
+        Node = create_node()
 
         def f(x_i: cp.Variable, index: str) -> cp.Expression:
             return -c_pro[index] @ x_i
@@ -95,12 +96,11 @@ if __name__ == "__main__":
         gossip_network = create_gossip_network(NODES, EDGES)
         nodes = [
             Node(
-                i,
-                NODE_CONFIG,
                 gossip_network[i],
                 partial(f, index=i),
                 A_mat[i],
                 partial(g, index=i),
+                **NODE_CONFIGS,
             )
             for i in NODES
         ]
@@ -112,7 +112,7 @@ if __name__ == "__main__":
         for node in nodes:
             node.join()
 
-    elif config["RUN_MODE"] == "VIS":
+    elif configs["RUN_MODE"] == "VIS":
         """
         Plot the graph and the result
         """
@@ -123,7 +123,7 @@ if __name__ == "__main__":
         fig1, ax1 = plt.subplots(figsize=(10, 5))
         ax1.set_aspect(1)
 
-        nx.draw(graph, pos=NODES_POS, ax=ax1, **config["GRPAH_PLOT_OPTIONS"])
+        nx.draw(graph, pos=NODES_POS, ax=ax1, **configs["GRPAH_PLOT_OPTIONS"])
 
         fig1.savefig(f"../figures/{EXPERIMENT}/fig_2.png", dpi=300, bbox_inches="tight")
         fig1.savefig(
@@ -135,11 +135,11 @@ if __name__ == "__main__":
         plt.rcParams["font.family"] = "Times New Roman"
         plt.rcParams["font.size"] = 15
 
-        iterations = np.arange(1, NODE_CONFIG["iterations"] + 1)
+        iterations = np.arange(1, NODE_CONFIGS["max_iter"] + 1)
 
         results = {
             i: np.load(
-                config[EXPERIMENT]["NODE_CONFIG"]["results_path"] + f"/node_{i}.npz"
+                configs[EXPERIMENT]["NODE_CONFIGS"]["results_path"] + f"/node_{i}.npz"
             )
             for i in NODES
         }
@@ -147,7 +147,7 @@ if __name__ == "__main__":
         f_i_series = {i: results[i]["f_i_series"] for i in NODES}
 
         fig2, ax2 = plt.subplots()
-        err_series = sum(f_i_series.values()) - config[EXPERIMENT]["OPT_VAL"]
+        err_series = sum(f_i_series.values()) - configs[EXPERIMENT]["OPT_VAL"]
 
         ax2.step(
             iterations,
