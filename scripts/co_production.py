@@ -1,3 +1,4 @@
+import os
 import toml
 import numpy as np
 import cvxpy as cp
@@ -12,13 +13,12 @@ from gossip import create_gossip_network
 from pdra import create_node, TruncatedLaplace
 
 if __name__ == "__main__":
-    configs = toml.load("../configs.toml")
+    configs = toml.load("../configs.toml")["cp"]
 
-    EXPERIMENT = "CP"
-    NODES = configs[EXPERIMENT]["NODES"]
-    EDGES = configs[EXPERIMENT]["EDGES"]
-    NODES_POS = configs[EXPERIMENT]["NODES_POS"]
-    NODE_CONFIGS = configs[EXPERIMENT]["NODE_CONFIGS"]
+    node_names = configs["node_names"]
+    edge_pairs = configs["edge_pairs"]
+
+    node_params = configs["node_params"]
 
     # Generate the model of the problem
     # di = 2
@@ -40,37 +40,37 @@ if __name__ == "__main__":
     # b_material = np.random.uniform(18, 22, M)
     # np.save(rf'..\data\Collaborative Production\model\b_material.npy', b_material)
 
-    c_pro: NpzFile = np.load(f"../data/{EXPERIMENT}/c_pro.npz")
-    A_mat: NpzFile = np.load(f"../data/{EXPERIMENT}/A_mat.npz")
-    x_lab: NpzFile = np.load(f"../data/{EXPERIMENT}/x_lab.npz")
+    c_pro: NpzFile = np.load(configs["data_dir"] + "c_pro.npz")
+    A_mat: NpzFile = np.load(configs["data_dir"] + "A_mat.npz")
+    x_lab: NpzFile = np.load(configs["data_dir"] + "x_lab.npz")
 
-    b_mat: NDArray[np.float64] = np.load(f"../data/{EXPERIMENT}/b_mat.npy")
+    b_mat: NDArray[np.float64] = np.load(configs["data_dir"] + "b_mat.npy")
 
-    if configs["RUN_MODE"] == "CEN":
+    if configs["run_type"] == "cen":
         """
         Centralized optimization
         """
-        x = {i: cp.Variable(A_mat[i].shape[1]) for i in NODES}
+        x = {i: cp.Variable(A_mat[i].shape[1]) for i in node_names}
 
-        cost = cp.sum([-c_pro[i] @ x[i] for i in NODES])
+        cost = cp.sum([-c_pro[i] @ x[i] for i in node_names])
 
-        lab_constraints = [x[i] - x_lab[i] <= 0 for i in NODES]
-        mat_constraints = [cp.sum([A_mat[i] @ x[i] for i in NODES]) - b_mat <= 0]
+        lab_constraints = [x[i] - x_lab[i] <= 0 for i in node_names]
+        mat_constraints = [cp.sum([A_mat[i] @ x[i] for i in node_names]) - b_mat <= 0]
 
         constraints = mat_constraints + lab_constraints
 
         problem = cp.Problem(cp.Minimize(cost), constraints)
         problem.solve(solver="GLPK")
 
-        F_star = problem.value
+        opt_val = problem.value
 
-        print(f"Optimal value: {F_star}")
+        print(f"Optimal value: {opt_val}")
 
         with open(f"../configs.toml", "w") as f:
-            configs[EXPERIMENT]["OPT_VAL"] = F_star
+            configs["opt_val"] = opt_val
             toml.dump(configs, f)
 
-    elif configs["RUN_MODE"] == "DIS":
+    elif configs["run_type"] == "dis":
         """
         Resource perturbation
         """
@@ -93,16 +93,16 @@ if __name__ == "__main__":
         def g(x_i: cp.Variable, index: str) -> cp.Expression:
             return x_i - x_lab[index]
 
-        gossip_network = create_gossip_network(NODES, EDGES)
+        gossip_network = create_gossip_network(node_names, edge_pairs)
         nodes = [
             Node(
                 gossip_network[i],
                 partial(f, index=i),
                 A_mat[i],
                 partial(g, index=i),
-                **NODE_CONFIGS,
+                **node_params,
             )
-            for i in NODES
+            for i in node_names
         ]
         nodes[0].set_resource(b_mat_bar)
 
@@ -112,42 +112,41 @@ if __name__ == "__main__":
         for node in nodes:
             node.join()
 
-    elif configs["RUN_MODE"] == "VIS":
+    elif configs["run_type"] == "plot":
+        fig_dir = configs["fig_dir"]
+        os.makedirs(fig_dir, exist_ok=True)
+
         """
         Plot the graph and the result
         """
         graph = nx.Graph()
-        graph.add_nodes_from(NODES)
-        graph.add_edges_from(EDGES)
+        graph.add_nodes_from(node_names)
+        graph.add_edges_from(edge_pairs)
 
         fig1, ax1 = plt.subplots(figsize=(10, 5))
         ax1.set_aspect(1)
 
-        nx.draw(graph, pos=NODES_POS, ax=ax1, **configs["GRPAH_PLOT_OPTIONS"])
+        nx.draw(graph, ax=ax1, **configs["nx_options"])
 
-        fig1.savefig(f"../figures/{EXPERIMENT}/fig_2.png", dpi=300, bbox_inches="tight")
-        fig1.savefig(
-            f"../figures/{EXPERIMENT}/fig_2.pdf", format="pdf", bbox_inches="tight"
-        )
+        fig1.savefig(fig_dir + "fig_2.png", dpi=300, bbox_inches="tight")
+        fig1.savefig(fig_dir + "fig_2.pdf", format="pdf", bbox_inches="tight")
 
         plt.rcParams["text.usetex"] = True
         plt.rcParams["text.latex.preamble"] = "\\usepackage{amsmath}"
         plt.rcParams["font.family"] = "Times New Roman"
         plt.rcParams["font.size"] = 15
 
-        iterations = np.arange(1, NODE_CONFIGS["max_iter"] + 1)
+        iterations = np.arange(1, node_params["max_iter"] + 1)
 
         results = {
-            i: np.load(
-                configs[EXPERIMENT]["NODE_CONFIGS"]["results_path"] + f"/node_{i}.npz"
-            )
-            for i in NODES
+            i: np.load(node_params["results_path"] + f"/node_{i}.npz")
+            for i in node_names
         }
 
-        f_i_series = {i: results[i]["f_i_series"] for i in NODES}
+        f_i_series = {i: results[i]["f_i_series"] for i in node_names}
 
         fig2, ax2 = plt.subplots()
-        err_series = sum(f_i_series.values()) - configs[EXPERIMENT]["OPT_VAL"]
+        err_series = sum(f_i_series.values()) - configs["opt_val"]
 
         ax2.step(
             iterations,
@@ -159,22 +158,18 @@ if __name__ == "__main__":
         ax2.yaxis.set_major_locator(MultipleLocator(10))
         ax2.legend()
 
-        fig2.savefig(
-            f"../figures/{EXPERIMENT}/fig_4_a.png", dpi=300, bbox_inches="tight"
-        )
-        fig2.savefig(
-            f"../figures/{EXPERIMENT}/fig_4_a.pdf", format="pdf", bbox_inches="tight"
-        )
+        fig2.savefig(fig_dir + "fig_4_a.png", dpi=300, bbox_inches="tight")
+        fig2.savefig(fig_dir + "fig_4_a.pdf", format="pdf", bbox_inches="tight")
 
         fig3, ax3 = plt.subplots()
         ax3ins = ax3.inset_axes((0.2, 0.3, 0.6, 0.6))
         ax3ins.tick_params(axis="both", labelsize=15)
 
         c_series: Dict[str, NDArray[np.float64]] = {
-            i: results[i]["c_i_series"] for i in NODES
+            i: results[i]["c_i_series"] for i in node_names
         }
 
-        for i in NODES:
+        for i in node_names:
             for j in range(c_series[i].shape[0]):
                 ax3.step(iterations, c_series[i][j])
                 ax3ins.step(iterations[2950:2999], c_series[i][j, 2950:2999])
@@ -182,20 +177,16 @@ if __name__ == "__main__":
         ax3.set_ylim(0, 6)
         ax3.set_xlabel("Iteration number $k$")
 
-        fig3.savefig(
-            f"../figures/{EXPERIMENT}/fig_4_b.png", dpi=300, bbox_inches="tight"
-        )
-        fig3.savefig(
-            f"../figures/{EXPERIMENT}/fig_4_b.pdf", format="pdf", bbox_inches="tight"
-        )
+        fig3.savefig(fig_dir + "fig_4_b.png", dpi=300, bbox_inches="tight")
+        fig3.savefig(fig_dir + "fig_4_b.pdf", format="pdf", bbox_inches="tight")
 
         fig4, ax4 = plt.subplots()
         x_series: Dict[str, NDArray[np.float64]] = {
-            i: results[i]["x_i_series"] for i in NODES
+            i: results[i]["x_i_series"] for i in node_names
         }
 
         constraint_values: NDArray[np.float64] = (
-            sum([A_mat[i] @ x_series[i] for i in NODES]) - b_mat[:, np.newaxis]
+            sum([A_mat[i] @ x_series[i] for i in node_names]) - b_mat[:, np.newaxis]
         )
 
         for i in range(constraint_values.shape[0]):
@@ -204,9 +195,5 @@ if __name__ == "__main__":
         ax4.set_xlabel("Iteration number $k$")
         ax4.legend()
 
-        fig4.savefig(
-            f"../figures/{EXPERIMENT}/fig_4_c.png", dpi=300, bbox_inches="tight"
-        )
-        fig4.savefig(
-            f"../figures/{EXPERIMENT}/fig_4_c.pdf", format="pdf", bbox_inches="tight"
-        )
+        fig4.savefig(fig_dir + "fig_4_c.png", dpi=300, bbox_inches="tight")
+        fig4.savefig(fig_dir + "fig_4_c.pdf", format="pdf", bbox_inches="tight")
