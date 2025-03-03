@@ -20,56 +20,18 @@ Alternatively, if you are using a different package manager or want to install d
 ### 2. Configuration
 Before running the experiments, configure the input parameters in the `config.toml` file.
 Below are the key sections and settings that you may want to customize:
-#### 1) General Plotting Settings:
-Control whether to plot the graph and customize plot options:
+#### 1) **dqp** Configuration
+Distributed Quadratic Programming (DQP) configuration including node_names, edge_pairs, and algorithm parameters.
+
+**Core parameters:**
 ```toml
-RUN_MODE = "VIS"  # Set to VIS to plot the results, CEN to run the centralized optimization, DIS to run the distributed optimziation.
-
-[GRAPH_PLOT_OPTIONS]
-with_labels = true         # Set to true to display labels on the nodes.
-font_size = 20             # Font size for the labels.
-node_color = "white"       # Color of the nodes.
-node_size = 1000           # Size of the nodes.
-edgecolors = "black"       # Color of the edges.
-linewidths = 1.5           # Line width of the edges.
-width = 1.5                # Width of the edges.
+[dqp]
+run_type = "plot"  # Set to "plot" to plot the results, "cen" to run the centralized optimization, "dis" to run the distributed optimization.
+algorithm = "rsdd" # Set to "core" to run the algorithm proposed in the paper， "rsdd" to run relaxation and successive distributed decomposition (RSDD) algorithm.
 ```
-#### 2) DQP Configuration
-Distributed Quadratic Programming (DQP) configuration including nodes, edges, node positions, and algorithm parameters.
-```toml
-[DQP]
-NODES = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]  # List of nodes.
-EDGES = [
-    ["1", "2"],
-    ["2", "3"],
-    ["3", "4"],
-    ["3", "6"],
-    ["3", "7"],
-    ["4", "5"],
-    ["6", "8"],
-    ["7", "9"]
-]
-
-[DQP.NODES_POS]
-"1" = [-2.0, 1.0]
-"2" = [-1.0, 0.5]
-"3" = [0.0, 0.0]
-"4" = [-1.0, -0.5]
-"5" = [-2.0, -1.0]
-"6" = [1.0, 0.5]
-"7" = [1.0, -0.5]
-"8" = [2.0, 1.0]
-"9" = [2.0, -1.0]
-
-[DQP.NODE_CONFIG]
-iterations = 2000       # Number of iterations to run the DQP algorithm.
-step_size = 3.0         # Step size for optimization.
-method = "AGM"          # The method to use for updating the auxiliary variable.
-solver = "OSQP"         # Solver to use for local optimization.
-result_path = "../data/dqp/result"  # Path where the results will be saved.
-```
-#### 3) CP Configuration
-The Collaborative Production (CP) Configuration is similar to the DQP configuration, with differences mainly in nodes, edges, node positions, and algorithm parameters. The structure and format are the same.
+#### 2) CP Configuration
+The Collaborative Production (CP) Configuration is similar to the DQP configuration.
+However, Only the proposed algorithm is used in this problem.
 
 ### 3. Running the Experiment
 To run the experiment, make sure you're in the project's root directory. Follow these steps:
