@@ -41,13 +41,13 @@ max_iter = 2000
 step_size = 3.0
 method = "AGM"
 solver = "OSQP"
-results_path = "../results/dqp/core"
+results_prefix = "../results/dqp/core"
 
 [dqp.node_params.rsdd]
 max_iter = 2000
 step_size = 300.0
 solver = "OSQP"
-results_path = "../results/dqp/rsdd"
+results_prefix = "../results/dqp/rsdd"
 decay_rate = 0.9
 penalty_factor = 1e3
 
@@ -121,4 +121,4 @@ max_iter = 3000
 step_size = 10.0
 method = "SM"
 solver = "GLPK"
-results_path = "../results/cp"
+results_prefix = "../results/cp"
