@@ -1,5 +1,6 @@
 import os
 import toml
+import pdra
 import numpy as np
 import cvxpy as cp
 import networkx as nx
@@ -7,13 +8,10 @@ import matplotlib.pyplot as plt
 from typing import Dict
 from numpy.typing import NDArray
 from functools import partial
-from gossip import create_gossip_network
-from pdra import create_node, TruncatedLaplace
+from gossip import create_sync_network
 
 if __name__ == "__main__":
-    """
-    Load the configuration
-    """
+    # Load the configuration
     configs = toml.load("../configs.toml")["dqp"]
 
     node_names = configs["node_names"]
@@ -22,9 +20,7 @@ if __name__ == "__main__":
     algorithm = configs["algorithm"]
     node_params = configs["node_params"]
 
-    """
-    Load the model of the problem
-    """
+    # Load the model of the problem
     ## Generate the model as described in the paper
     # di = 4
     # M = 3
@@ -60,14 +56,12 @@ if __name__ == "__main__":
 
     b = np.array([proportion_of_1, proportion_of_2, proportion_of_3])
 
-    if configs["run_mode"] == "cen":
-        """
-        Centralized optimization
-        """
+    if configs["run_type"] == "cen":
+        # Centralized optimization
         x = {i: cp.Variable(A[i].shape[1]) for i in node_names}
 
         cost = cp.sum([x[i] @ Q[i] @ x[i] / 2 + g[i] @ x[i] for i in node_names])
-        constraints = [cp.sum([A[i] @ x[i] for i in node_names]) - b <= 0]
+        constraints: list[cp.Constraint] = [cp.sum([A[i] @ x[i] for i in node_names]) <= b]  # type: ignore
 
         problem = cp.Problem(cp.Minimize(cost), constraints)
         problem.solve(solver="OSQP")
@@ -76,14 +70,12 @@ if __name__ == "__main__":
 
         print(f"Centralized optimal value: {opt_val}")
 
-        with open(f"../configs.toml", "w") as f:
+        with open(f"../configs.toml", "w") as file:
             configs["opt_val"] = opt_val
-            toml.dump(configs, f)
+            toml.dump(configs, file)
 
-    elif configs["run_mode"] == "dis":
-        """
-        Resource perturbation
-        """
+    elif configs["run_type"] == "dis":
+        # Resource perturbation
         epsilon = 0.5
         delta = 0.005
         Delta = 0.002
@@ -92,7 +84,7 @@ if __name__ == "__main__":
 
         if algorithm == "core":
             s = (Delta / epsilon) * np.log(b.size * (np.exp(epsilon) - 1) / delta + 1)
-            tl = TruncatedLaplace(-s, s, 0, Delta / epsilon)
+            tl = pdra.TruncatedLaplace(-s, s, 0, Delta / epsilon)
             perturbation = -s * np.ones(b.size) + tl.sample(b.size)
         elif algorithm == "rsdd":
             perturbation = np.random.laplace(0, Delta / epsilon, b.size)
@@ -101,11 +93,9 @@ if __name__ == "__main__":
 
         b_bar = b + perturbation
 
-        """
-        Distributed resource allocation
-        """
-        Node = create_node(algorithm)
-        gossip_network = create_gossip_network(node_names, edge_pairs)
+        # Distributed resource allocation
+        Node = pdra.Node.create(algorithm)
+        gossip_network = create_sync_network(node_names, edge_pairs)
 
         def f(x: cp.Variable, index: str) -> cp.Expression:
             return x @ Q[index] @ x / 2 + g[index] @ x
@@ -123,13 +113,11 @@ if __name__ == "__main__":
         for node in nodes:
             node.join()
 
-    elif configs["run_mode"] == "plot":
+    elif configs["run_type"] == "plot":
         fig_dir = configs["fig_dir"]
         os.makedirs(fig_dir, exist_ok=True)
 
-        """
-        Plot the graph and the result
-        """
+        # Plot the graph and the result
         graph = nx.Graph()
         graph.add_nodes_from(node_names)
         graph.add_edges_from(edge_pairs)
@@ -137,13 +125,17 @@ if __name__ == "__main__":
         fig1, ax1 = plt.subplots(1, 1)
 
         ax1.set_aspect(1)
-        ax1.set_ylim([-1.5, 1.5])
+        ax1.set_ylim(-1.5, 1.5)
 
         nx.draw(graph, ax=ax1, **configs["nx_options"])
 
-        fig1.savefig(configs["fig_dir"] + "fig_1.png", dpi=300, bbox_inches="tight")
         fig1.savefig(
-            configs["fig_dir"] + "fig_1.pdf", format="pdf", bbox_inches="tight"
+            os.path.join(configs["fig_dir"], "fig_1.png"), dpi=300, bbox_inches="tight"
+        )
+        fig1.savefig(
+            os.path.join(configs["fig_dir"], "fig_1.pdf"),
+            format="pdf",
+            bbox_inches="tight",
         )
 
         plt.rcParams["text.usetex"] = True
@@ -154,11 +146,11 @@ if __name__ == "__main__":
 
         results = {
             "core": {
-                i: np.load(node_params["core"]["results_path"] + f"/node_{i}.npz")
+                i: np.load(node_params["core"]["results_prefix"] + f"/node_{i}.npz")
                 for i in node_names
             },
             "rsdd": {
-                i: np.load(node_params["rsdd"]["results_path"] + f"/node_{i}.npz")
+                i: np.load(node_params["rsdd"]["results_prefix"] + f"/node_{i}.npz")
                 for i in node_names
             },
         }
@@ -195,9 +187,15 @@ if __name__ == "__main__":
         ax2.legend()
         ax2.grid()
 
-        fig2.savefig(configs["fig_dir"] + "fig_3_a.png", dpi=300, bbox_inches="tight")
         fig2.savefig(
-            configs["fig_dir"] + "fig_3_a.pdf", format="pdf", bbox_inches="tight"
+            os.path.join(configs["fig_dir"], "fig_3_a.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
+        fig2.savefig(
+            os.path.join(configs["fig_dir"], "fig_3_a.pdf"),
+            format="pdf",
+            bbox_inches="tight",
         )
 
         colors = {
@@ -228,9 +226,15 @@ if __name__ == "__main__":
         ax3.legend()
         ax3.grid()
 
-        fig3.savefig(configs["fig_dir"] + "fig_3_b.png", dpi=300, bbox_inches="tight")
         fig3.savefig(
-            configs["fig_dir"] + "fig_3_b.pdf", format="pdf", bbox_inches="tight"
+            os.path.join(configs["fig_dir"], "fig_3_b.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
+        fig3.savefig(
+            os.path.join(configs["fig_dir"], "fig_3_b.pdf"),
+            format="pdf",
+            bbox_inches="tight",
         )
 
         fig4, ax4 = plt.subplots()
@@ -263,13 +267,93 @@ if __name__ == "__main__":
         ax4.grid()
 
         fig4.savefig(
-            configs["fig_dir"] + "fig_3_c.png",
+            os.path.join(configs["fig_dir"], "fig_3_c.png"),
             dpi=300,
             bbox_inches="tight",
         )
         fig4.savefig(
-            configs["fig_dir"] + "fig_3_c.pdf", format="pdf", bbox_inches="tight"
+            os.path.join(configs["fig_dir"], "fig_3_c.pdf"),
+            format="pdf",
+            bbox_inches="tight",
         )
 
-    else:
-        raise ValueError("Invalid run mode")
+        computation_times = {
+            "core": np.vstack(
+                [results["core"][i]["computation_time"] for i in node_names]
+            ),
+            "rsdd": np.vstack(
+                [results["rsdd"][i]["computation_time"] for i in node_names]
+            ),
+        }
+
+        avg_times = {
+            "core": np.mean(computation_times["core"], axis=0),
+            "rsdd": np.mean(computation_times["rsdd"], axis=0),
+        }
+
+        max_times = {
+            "core": np.max(computation_times["core"], axis=0),
+            "rsdd": np.max(computation_times["rsdd"], axis=0),
+        }
+
+        fig5, ax5 = plt.subplots()
+
+        ax5.step(
+            iterations,
+            avg_times["core"],
+            label="The proposed algorithm",
+            color="tab:blue",
+            linestyle="-",
+        )
+
+        ax5.step(
+            iterations,
+            avg_times["rsdd"],
+            label="RSDD",
+            color="tab:orange",
+            linestyle="--",
+        )
+
+        ax5.set_xlabel("Iteration number $k$")
+        ax5.set_ylabel("Time (s)")
+        ax5.legend()
+        ax5.grid()
+        fig5.savefig(
+            os.path.join(configs["fig_dir"], "fig_4.png"), dpi=300, bbox_inches="tight"
+        )
+        fig5.savefig(
+            os.path.join(configs["fig_dir"], "fig_4.pdf"),
+            format="pdf",
+            bbox_inches="tight",
+        )
+
+        fig6, ax6 = plt.subplots()
+
+        ax6.step(
+            iterations,
+            max_times["core"],
+            label="The proposed algorithm",
+            color="tab:blue",
+            linestyle="-",
+        )
+
+        ax6.step(
+            iterations,
+            max_times["rsdd"],
+            label="RSDD",
+            color="tab:orange",
+            linestyle="--",
+        )
+
+        ax6.set_xlabel("Iteration number $k$")
+        ax6.set_ylabel("Time (s)")
+        ax6.legend()
+        ax6.grid()
+        fig6.savefig(
+            os.path.join(configs["fig_dir"], "fig_5.png"), dpi=300, bbox_inches="tight"
+        )
+        fig6.savefig(
+            os.path.join(configs["fig_dir"], "fig_5.pdf"),
+            format="pdf",
+            bbox_inches="tight",
+        )
