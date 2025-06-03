@@ -1,6 +1,5 @@
 import os
 import toml
-import pdra
 import numpy as np
 import cvxpy as cp
 import networkx as nx
@@ -9,13 +8,14 @@ from typing import Dict
 from numpy.typing import NDArray
 from functools import partial
 from gossip import create_sync_network
+from pdra import Node, TruncatedLaplace
 
 if __name__ == "__main__":
     # Load the configuration
     configs = toml.load("../configs.toml")["dqp"]
 
-    node_names = configs["node_names"]
-    edge_pairs = configs["edge_pairs"]
+    node_names: list[str] = configs["node_names"]
+    edge_pairs: list[tuple[str, str]] = configs["edge_pairs"]
 
     algorithm = configs["algorithm"]
     node_params = configs["node_params"]
@@ -58,10 +58,12 @@ if __name__ == "__main__":
 
     if configs["run_type"] == "cen":
         # Centralized optimization
-        x = {i: cp.Variable(A[i].shape[1]) for i in node_names}
+        x: dict[str, cp.Variable] = {i: cp.Variable(A[i].shape[1]) for i in node_names}
 
         cost = cp.sum([x[i] @ Q[i] @ x[i] / 2 + g[i] @ x[i] for i in node_names])
-        constraints: list[cp.Constraint] = [cp.sum([A[i] @ x[i] for i in node_names]) <= b]  # type: ignore
+        constraints: list[cp.Constraint] = [
+            sum([A[i] @ x[i] for i in node_names], start=cp.Constant(0)) <= b
+        ]
 
         problem = cp.Problem(cp.Minimize(cost), constraints)
         problem.solve(solver="OSQP")
@@ -74,6 +76,94 @@ if __name__ == "__main__":
             configs["opt_val"] = opt_val
             toml.dump(configs, file)
 
+    elif configs["run_type"] == "sen":
+        # Sensitivity analysis for the differential privacy
+        opt_val = configs["opt_val"]
+
+        x: dict[str, cp.Variable] = {i: cp.Variable(A[i].shape[1]) for i in node_names}
+        b_bar = cp.Parameter(b.size)
+
+        cost = cp.sum([x[i] @ Q[i] @ x[i] / 2 + g[i] @ x[i] for i in node_names])
+        constraints: list[cp.Constraint] = [
+            sum([A[i] @ x[i] for i in node_names], start=cp.Constant(0)) <= b_bar
+        ]
+
+        problem = cp.Problem(cp.Minimize(cost), constraints)
+
+        epsilons = np.arange(0.05, 0.525, 0.025)
+        deltas = np.arange(1e-5, 0.0042 + 1e-5, 0.0002)
+        Delta = 0.002
+
+        n_eps = epsilons.size
+        n_del = deltas.size
+        n_samples = n_eps * n_del
+        run_times = 50
+
+        Eps, Del = np.meshgrid(epsilons, deltas, indexing="ij")
+        param_pairs = np.dstack((Eps, Del)).reshape(-1, 2)
+
+        opt_perturb = np.zeros((n_samples, run_times))
+
+        for i in range(n_samples):
+            epsilon, delta = param_pairs[i]
+            s = (Delta / epsilon) * np.log(b.size * (np.exp(epsilon) - 1) / delta + 1)
+            tl = TruncatedLaplace(-s, s, 0, Delta / epsilon)
+
+            perturbation = -s * np.ones(b.size) + tl.sample(b.size)
+            b_bar.value = b + perturbation
+
+            for j in range(run_times):
+                problem.solve(solver="OSQP")
+                opt_perturb[i, j] = problem.value
+
+        rel_opt_gap: NDArray[np.float64] = np.abs(
+            (np.mean(opt_perturb, axis=1) - opt_val) / opt_val
+        )
+        rel_opt_gap = rel_opt_gap.reshape(n_eps, n_del)
+
+        plt.rcParams["text.usetex"] = True
+        plt.rcParams["text.latex.preamble"] = "\\usepackage{amsmath}"
+        plt.rcParams["font.family"] = "serif"
+        plt.rcParams["font.serif"] = "Times New Roman"
+        plt.rcParams["font.size"] = 15
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        import matplotlib.cm as cm
+        import matplotlib.colors as mcolors
+
+        cmap = cm.get_cmap("viridis")
+        norm = mcolors.Normalize(vmin=epsilons.min(), vmax=epsilons.max())
+
+        for i in range(n_eps):
+            color = cmap(norm(epsilons[i]))
+            ax.plot(
+                deltas,
+                rel_opt_gap[i, :],
+                label=f"$\\epsilon = {epsilons[i]:.2f}$",
+                color=color,
+            )
+
+        sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = fig.colorbar(sm, ax=ax, orientation="vertical")
+        cbar.set_label("$\\epsilon$")
+        ax.set_xticklabels(ax.get_xticks(), rotation=45)
+        ax.set_xlabel("$\\delta$")
+        ax.set_ylabel("Relative optimality gap")
+
+        fig.savefig(
+            os.path.join(configs["fig_dir"], "sensitivity_analysis.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
+
+        fig.savefig(
+            os.path.join(configs["fig_dir"], "sensitivity_analysis.pdf"),
+            format="pdf",
+            bbox_inches="tight",
+        )
+
     elif configs["run_type"] == "dis":
         # Resource perturbation
         epsilon = 0.5
@@ -84,7 +174,7 @@ if __name__ == "__main__":
 
         if algorithm == "core":
             s = (Delta / epsilon) * np.log(b.size * (np.exp(epsilon) - 1) / delta + 1)
-            tl = pdra.TruncatedLaplace(-s, s, 0, Delta / epsilon)
+            tl = TruncatedLaplace(-s, s, 0, Delta / epsilon)
             perturbation = -s * np.ones(b.size) + tl.sample(b.size)
         elif algorithm == "rsdd":
             perturbation = np.random.laplace(0, Delta / epsilon, b.size)
@@ -94,14 +184,19 @@ if __name__ == "__main__":
         b_bar = b + perturbation
 
         # Distributed resource allocation
-        Node = pdra.Node.create(algorithm)
         gossip_network = create_sync_network(node_names, edge_pairs)
 
         def f(x: cp.Variable, index: str) -> cp.Expression:
             return x @ Q[index] @ x / 2 + g[index] @ x
 
         nodes = [
-            Node(gossip_network[i], partial(f, index=i), A[i], **node_params[algorithm])
+            Node.create(
+                algorithm,
+                gossip_network[i],
+                partial(f, index=i),
+                A[i],
+                **node_params[algorithm],
+            )
             for i in node_names
         ]
 
@@ -319,10 +414,12 @@ if __name__ == "__main__":
         ax5.legend()
         ax5.grid()
         fig5.savefig(
-            os.path.join(configs["fig_dir"], "fig_4.png"), dpi=300, bbox_inches="tight"
+            os.path.join(configs["fig_dir"], "dqp_avg_time.png"),
+            dpi=300,
+            bbox_inches="tight",
         )
         fig5.savefig(
-            os.path.join(configs["fig_dir"], "fig_4.pdf"),
+            os.path.join(configs["fig_dir"], "dqp_avg_time.pdf"),
             format="pdf",
             bbox_inches="tight",
         )
@@ -350,10 +447,12 @@ if __name__ == "__main__":
         ax6.legend()
         ax6.grid()
         fig6.savefig(
-            os.path.join(configs["fig_dir"], "fig_5.png"), dpi=300, bbox_inches="tight"
+            os.path.join(configs["fig_dir"], "dqp_max_time.png"),
+            dpi=300,
+            bbox_inches="tight",
         )
         fig6.savefig(
-            os.path.join(configs["fig_dir"], "fig_5.pdf"),
+            os.path.join(configs["fig_dir"], "dqp_max_time.pdf"),
             format="pdf",
             bbox_inches="tight",
         )
