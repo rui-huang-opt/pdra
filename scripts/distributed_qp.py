@@ -148,6 +148,7 @@ if __name__ == "__main__":
         sm.set_array([])
         cbar = fig.colorbar(sm, ax=ax, orientation="vertical")
         cbar.set_label("$\\epsilon$")
+        ax.set_xlim(0.0, 0.004)
         ax.set_xticklabels(ax.get_xticks(), rotation=45)
         ax.set_xlabel("$\\delta$")
         ax.set_ylabel("Relative optimality gap")
