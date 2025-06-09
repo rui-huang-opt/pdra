@@ -2,6 +2,46 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.typing import NDArray
+from scipy.optimize import linprog, OptimizeResult
+
+
+def remove_redundancy(
+    lhs: NDArray[np.float64], rhs: NDArray[np.float64]
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    if lhs.ndim != 2 or lhs.shape[1] != 2:
+        raise ValueError("lhs must be a 2D array with shape (n_constraints, 2).")
+    if rhs.ndim != 1 or lhs.shape[0] != rhs.shape[0]:
+        raise ValueError(
+            "rhs must be a 1D array with the same length as the number of constraints in lhs."
+        )
+
+    num_constraints = lhs.shape[0]
+    keep_indices = np.ones(num_constraints, dtype=bool)
+
+    for i in range(num_constraints):
+        temp_lhs = np.delete(lhs, i, axis=0)
+        temp_rhs = np.delete(rhs, i)
+
+        res: OptimizeResult = linprog(
+            c=-lhs[i],
+            A_ub=temp_lhs,
+            b_ub=temp_rhs,
+            method="highs",
+            bounds=(None, None),
+            options={"disp": False},
+        )
+
+        sussess = res.get("success", False)
+        status = res.get("status", 0)
+        if sussess and status == 0:
+            opt_val = -res.get("fun", 0.0)
+        else:
+            opt_val = np.inf
+
+        if opt_val < rhs[i]:
+            keep_indices[i] = False
+
+    return lhs[keep_indices], rhs[keep_indices]
 
 
 def calculate_vertices(
@@ -14,12 +54,14 @@ def calculate_vertices(
             "rhs must be a 1D array with the same length as the number of constraints in lhs."
         )
 
-    angles = np.arctan2(lhs[:, 1], lhs[:, 0])
-    sorted_indices = np.argsort(angles)
-    sorted_lhs = lhs[sorted_indices]
-    sorted_rhs = rhs[sorted_indices]
+    lhs_reduced, rhs_reduced = remove_redundancy(lhs, rhs)
 
-    num_constraints = lhs.shape[0]
+    angles = np.arctan2(lhs_reduced[:, 1], lhs_reduced[:, 0])
+    sorted_indices = np.argsort(angles)
+    sorted_lhs = lhs_reduced[sorted_indices]
+    sorted_rhs = rhs_reduced[sorted_indices]
+
+    num_constraints = lhs_reduced.shape[0]
     vertices: list[NDArray[np.float64]] = []
     for i in range(num_constraints):
         j = (i + 1) % num_constraints
@@ -27,7 +69,7 @@ def calculate_vertices(
         temp_rhs = np.hstack((sorted_rhs[i], sorted_rhs[j]))
         try:
             vertex = np.linalg.solve(temp_lhs, temp_rhs)
-            if np.all(lhs @ vertex <= rhs):
+            if np.all(lhs_reduced @ vertex <= rhs_reduced):
                 vertices.append(vertex)
         except np.linalg.LinAlgError:
             continue
@@ -44,9 +86,17 @@ def plot_constraints(
     y_lim: tuple[float, float] = (-2, 2),
     step: float = 0.1,
 ) -> None:
+    if lhs.ndim != 2 or lhs.shape[1] != 2:
+        raise ValueError("lhs must be a 2D array with shape (n_constraints, 2).")
+    if rhs.ndim != 1 or lhs.shape[0] != rhs.shape[0]:
+        raise ValueError(
+            "rhs must be a 1D array with the same length as the number of constraints in lhs."
+        )
+
     x = np.arange(x_lim[0], x_lim[1] + step, step)
 
-    vertices = calculate_vertices(lhs, rhs)
+    if lhs.shape[0] > 1:
+        vertices = calculate_vertices(lhs, rhs)
 
     fig, ax = plt.subplots(figsize=(8, 6))
 
@@ -78,14 +128,20 @@ def plot_constraints(
         constraint_label = f"${lhs_str} \\leq {b_i:g}$"
         ax.plot(x, (b_i - a_i[0] * x) / a_i[1], label=constraint_label)
 
+    lhs_ = np.vstack((lhs, np.eye(2), -np.eye(2)))
+    rhs_ = np.hstack((rhs, np.array([x_lim[1], y_lim[1], -x_lim[0], -y_lim[0]])))
+    vertices_ = calculate_vertices(lhs_, rhs_)
+
     ax.fill(
-        vertices[:, 0],
-        vertices[:, 1],
+        vertices_[:, 0],
+        vertices_[:, 1],
         alpha=0.3,
         color="gray",
         label="Feasible Region",
     )
-    ax.plot(vertices[:, 0], vertices[:, 1], "ro", label="Vertices")
+
+    if lhs.shape[0] > 1:
+        ax.plot(vertices[:, 0], vertices[:, 1], "ro", label="Vertices")
 
     ax.set_title("LICQ Illustration")
     ax.set_xlabel("x1")
@@ -97,7 +153,7 @@ def plot_constraints(
 
     ax.legend()
 
-    fig.savefig(f"{fig_name}", dpi=300, bbox_inches="tight")
+    fig.savefig(f"{fig_name}.png", dpi=300, bbox_inches="tight")
     fig.savefig(f"{fig_name}.pdf", bbox_inches="tight")
 
 
@@ -106,16 +162,16 @@ if __name__ == "__main__":
     figure_dir = os.path.join(root_dir, "figures", "licq")
     os.makedirs(figure_dir, exist_ok=True)
 
-    A = np.array([[-1.0, -2.0], [1.0, 1.0], [-1.0, 2.0], [0.0, -1.0]])
-    b = np.array([2.0, 1.0, 2.0, 1.0])
+    A = np.array([[1.0, 1.0], [1.0, 2.0], [2.0, 1.0]])
+    b = np.array([1.0, 1.0, 1.0])
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    plot_constraints(A, b, ax, os.path.join(figure_dir, "licq_illustration_1.png"))
+    plot_constraints(A, b, ax, os.path.join(figure_dir, "licq_illustration_1"))
 
-    b[-1] = 0.0
+    b[0] = 2 / 3
     fig, ax = plt.subplots(figsize=(8, 6))
-    plot_constraints(A, b, ax, os.path.join(figure_dir, "licq_illustration_2.png"))
+    plot_constraints(A, b, ax, os.path.join(figure_dir, "licq_illustration_2"))
 
-    b[-1] = -1.0
+    b[0] = 0.0
     fig, ax = plt.subplots(figsize=(8, 6))
-    plot_constraints(A, b, ax, os.path.join(figure_dir, "licq_illustration_3.png"))
+    plot_constraints(A, b, ax, os.path.join(figure_dir, "licq_illustration_3"))
