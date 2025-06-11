@@ -18,5 +18,5 @@ pip install .
 ## Testing requirements
 To run the test suite and visualization examples, install the optional dependencies:
 ```bash
-pip install matplotlib==3.7.4 toml==0.10.2 networkx==3.2.1
+pip install .[test]
 ```
