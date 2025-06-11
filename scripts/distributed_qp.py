@@ -392,68 +392,59 @@ if __name__ == "__main__":
             "rsdd": np.max(computation_times["rsdd"], axis=0),
         }
 
-        fig5, ax5 = plt.subplots()
+        fig5, ax5 = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+        ax5_0: plt.Axes = ax5[0]
+        ax5_1: plt.Axes = ax5[1]
 
-        ax5.step(
+        # Average computation time (left)
+        ax5_0.step(
             iterations,
             avg_times["core"],
             label="The proposed algorithm",
             color="tab:blue",
             linestyle="-",
         )
-
-        ax5.step(
+        ax5_0.step(
             iterations,
             avg_times["rsdd"],
             label="RSDD",
             color="tab:orange",
             linestyle="--",
         )
+        ax5_0.set_xlabel("Iteration number $k$")
+        ax5_0.set_ylabel("Time (s)")
+        ax5_0.set_title("Average computation time")
+        ax5_0.legend()
+        ax5_0.grid()
 
-        ax5.set_xlabel("Iteration number $k$")
-        ax5.set_ylabel("Time (s)")
-        ax5.legend()
-        ax5.grid()
-        fig5.savefig(
-            os.path.join(configs["fig_dir"], "dqp_avg_time.png"),
-            dpi=300,
-            bbox_inches="tight",
-        )
-        fig5.savefig(
-            os.path.join(configs["fig_dir"], "dqp_avg_time.pdf"),
-            format="pdf",
-            bbox_inches="tight",
-        )
-
-        fig6, ax6 = plt.subplots()
-
-        ax6.step(
+        # Maximum computation time (right)
+        ax5_1.step(
             iterations,
             max_times["core"],
             label="The proposed algorithm",
             color="tab:blue",
             linestyle="-",
         )
-
-        ax6.step(
+        ax5_1.step(
             iterations,
             max_times["rsdd"],
             label="RSDD",
             color="tab:orange",
             linestyle="--",
         )
+        ax5_1.set_xlabel("Iteration number $k$")
+        ax5_1.set_title("Maximum computation time")
+        ax5_1.legend()
+        ax5_1.grid()
 
-        ax6.set_xlabel("Iteration number $k$")
-        ax6.set_ylabel("Time (s)")
-        ax6.legend()
-        ax6.grid()
-        fig6.savefig(
-            os.path.join(configs["fig_dir"], "dqp_max_time.png"),
+        fig5.tight_layout()
+        fig5.savefig(
+            os.path.join(configs["fig_dir"], "dqp_time_comparison.png"),
             dpi=300,
             bbox_inches="tight",
         )
-        fig6.savefig(
-            os.path.join(configs["fig_dir"], "dqp_max_time.pdf"),
+        fig5.savefig(
+            os.path.join(configs["fig_dir"], "dqp_time_comparison.pdf"),
             format="pdf",
             bbox_inches="tight",
         )

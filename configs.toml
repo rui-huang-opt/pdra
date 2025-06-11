@@ -1,5 +1,5 @@
 [dqp]
-run_type = "sen" # "cen", "dis" or "plot"
+run_type = "plot" # "cen", "dis" or "plot"
 algorithm = "rsdd" # "core" or "rsdd"
 node_names = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 edge_pairs = [ # fmt: skip
