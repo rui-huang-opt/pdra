@@ -16,6 +16,30 @@ cd pdra
 pip install .
 ```
 
+## Requirements
+- Python >= 3.10
+- cvxpy>=1.4.3
+- gossip @ git+https://github.com/rui-huang-opt/gossip.git
+- matplotlib, networkx, toml (for visualization and testing)
+
+All dependencies are specified in `pyproject.toml` and will be installed automatically with `pip install .` or `pip install .[test]` for optional testing/visualization features.
+
+## (Optional) Using a Virtual Environment
+
+It is recommended to use a virtual environment to avoid dependency conflicts:
+
+```bash
+# On Linux/macOS:
+python3 -m venv .venv
+source .venv/bin/activate
+
+# On Windows:
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+After activating the environment, proceed with the installation steps above.
+
 ## Testing
 
 To run the test suite and visualization examples, install the optional dependencies:
