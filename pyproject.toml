@@ -10,7 +10,7 @@ description = "Private Distributed Resource Allocation"
 authors = [{ name = "Rui Huang", email = "R.Huang@lboro.ac.uk" }]
 
 dependencies = [
-    "cvxpy>=1.4.3[GLPK]",
+    "cvxpy[GLPK]>=1.4.3",
     "gossip @ git+https://github.com/rui-huang-opt/gossip.git",
 ]
 
