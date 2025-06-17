@@ -47,25 +47,6 @@ To run the test suite and visualization examples, install the optional dependenc
 pip install .[test]
 ```
 
-The following tests are included:
-
-- **Distributed Quadratic Programming:**  
-    Demonstrates the distributed optimization algorithm on a quadratic programming problem, verifying correctness and efficiency.  
-    Run with:
-    ```bash
-    python test/distributed_qp.py
-    ```
-    The test suite includes experiments comparing three algorithms for distributed resource allocation: the proposed algorithm, RSDD [1], and dual decomposition [2].
-
-- **Truncated Laplace Noise Test:**  
-    Checks the implementation of the truncated Laplace noise mechanism, ensuring privacy-preserving properties are correctly applied.  
-    Run with:
-    ```bash
-    python test/truncated_laplace.py
-    ```
-    Visualizes the effect of the truncated Laplace noise mechanism.  
-    <img src="test/figures/truncated_laplace/truncated_laplace.png" alt="Truncated Laplace Noise" width="400"/>
-
 ## References
 
 [1] [Notarnicola, I., & Notarstefano, G. (2019). Constraint-coupled distributed optimization: A relaxation and duality approach. *IEEE Transactions on Control of Network Systems*, 7(1), 483-492.](https://ieeexplore.ieee.org/abstract/document/8746216)
