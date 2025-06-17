@@ -10,13 +10,14 @@ description = "Private Distributed Resource Allocation"
 authors = [{ name = "Rui Huang", email = "R.Huang@lboro.ac.uk" }]
 
 dependencies = [
-    "cvxpy>=1.4.3",
+    "cvxpy>=1.4.3[GLPK]",
     "gossip @ git+https://github.com/rui-huang-opt/gossip.git",
 ]
 
 [project.optional-dependencies]
-test = ["matplotlib==3.7.4", "networkx==3.4.2"]
-exp = ["matplotlib==3.7.4", "networkx==3.4.2", "toml==0.10.2"]
+test = ["matplotlib>=3.10.3", "networkx>=3.4.2"]
+exp = ["matplotlib>=3.10.3", "networkx>=3.4.2"]
+vsc = ["ipykernel>=6.29.5"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
