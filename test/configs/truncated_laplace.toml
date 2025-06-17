@@ -1,7 +1,0 @@
-low = -2          # Lower bound of the distribution.
-high = 1          # Upper bound of the distribution.
-loc = 0           # Location parameter of the distribution.
-scale = 1         # Scale parameter of the distribution.
-n_samples = 50000 # Number of samples to draw.
-n_bins = 50       # Number of bins to plot histogram.
-n_points = 1000   # Number of points to plot pdf.

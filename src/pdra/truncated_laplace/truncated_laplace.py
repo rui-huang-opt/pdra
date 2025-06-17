@@ -48,13 +48,13 @@ class TruncatedLaplace(object):
 
         return (high_term - low_term) / 2
 
-    def get_max_pdf_value(self) -> float:
+    def get_max_pdf_value(self) -> float | NDArray[np.float64]:
         val = max(self._low, min(self._high, self._location))
         pdf_max = self.pdf(val)
 
         return pdf_max
 
-    def pdf(self, u: float) -> float:
+    def pdf(self, u: float | NDArray[np.float64]) -> float | NDArray[np.float64]:
         """
         Probability Density Function of the Truncated Laplace Distribution.
         """
