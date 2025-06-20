@@ -2,10 +2,11 @@ import os
 import numpy as np
 import cvxpy as cp
 from abc import ABCMeta, abstractmethod
+from functools import cached_property
 from typing import Callable, Type, Dict, Any
 from numpy.typing import NDArray
 from multiprocessing import Process
-from gossip import Gossip
+from topolink import NodeHandle
 
 
 class Node(Process, metaclass=ABCMeta):
@@ -20,16 +21,17 @@ class Node(Process, metaclass=ABCMeta):
 
     def __init__(
         self,
-        communicator: Gossip,
+        name: str,
         f_i: Callable[[cp.Variable], cp.Expression],
         a_i: NDArray[np.float64],
         g_i: Callable[[cp.Variable], cp.Expression] | None = None,
         max_iter: int = 1000,
         results_prefix: str | None = None,
+        sever_address: str = "localhost:5555",
     ):
         super().__init__()
 
-        self._communicator = communicator
+        self._name = name
 
         self._f_i = f_i
         self._a_i = a_i
@@ -50,6 +52,8 @@ class Node(Process, metaclass=ABCMeta):
                 "x_i_series": np.zeros((self.n_dim, self.max_iter)),
                 "computation_time": np.zeros(self.max_iter),
             }
+
+        self._server_address = sever_address
 
     def set_resource(self, b_i: NDArray[np.float64]):
         if b_i.ndim != 1 or b_i.shape[0] != self.n_ccons:
@@ -74,6 +78,10 @@ class Node(Process, metaclass=ABCMeta):
             raise ValueError("The problem may not be solved.")
         return np.asarray(val, dtype=np.float64)
 
+    @cached_property
+    def node_handle(self) -> NodeHandle:
+        return NodeHandle(self._name, server_address=self._server_address)
+
     @abstractmethod
     def perform_iteration(self, k: int, local_problem: cp.Problem): ...
 
@@ -84,10 +92,12 @@ class Node(Process, metaclass=ABCMeta):
 
     def save_results(self, results_prefix: str):
         os.makedirs(results_prefix, exist_ok=True)
-        node_name = self._communicator.name
-        np.savez(os.path.join(results_prefix, f"node_{node_name}.npz"), **self._results)
+        np.savez(
+            os.path.join(results_prefix, f"node_{self._name}.npz"), **self._results
+        )
 
     def run(self):
+        self.node_handle  # Lazy initialization of NodeHandle
         local_problem = self.setup_local_problem()
 
         if self._results_prefix is None:
@@ -100,11 +110,13 @@ class Node(Process, metaclass=ABCMeta):
 
             self.save_results(self._results_prefix)
 
+        del self.node_handle  # Clean up NodeHandle
+
     @classmethod
     def create(
         cls,
+        algorithm: str,
         name: str,
-        communicator: Gossip,
         f_i: Callable[[cp.Variable], cp.Expression],
         a_i: NDArray[np.float64],
         g_i: Callable[[cp.Variable], cp.Expression] | None = None,
@@ -113,8 +125,8 @@ class Node(Process, metaclass=ABCMeta):
         *args: Any,
         **kwargs: Any,
     ) -> "Node":
-        if name not in Node._registry:
-            raise ValueError(f"Unknown node type: {name}")
-        return Node._registry[name](
-            communicator, f_i, a_i, g_i, max_iter, results_prefix, *args, **kwargs
+        if algorithm not in Node._registry:
+            raise ValueError(f"Unknown node type: {algorithm}")
+        return Node._registry[algorithm](
+            name, f_i, a_i, g_i, max_iter, results_prefix, *args, **kwargs
         )

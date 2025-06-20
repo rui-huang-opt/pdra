@@ -2,7 +2,6 @@ import numpy as np
 import cvxpy as cp
 from typing import Callable
 from numpy.typing import NDArray
-from gossip import Gossip
 from ..resource_allocation import Node
 
 
@@ -19,17 +18,18 @@ class DualDecompositionNode(Node, key="dual_decomp"):
 
     def __init__(
         self,
-        communicator: Gossip,
+        name: str,
         f_i: Callable[[cp.Variable], cp.Expression],
         a_i: NDArray[np.float64],
         g_i: Callable[[cp.Variable], cp.Expression] | None = None,
         max_iter: int = 1000,
         results_prefix: str = "results",
+        sever_address: str = "localhost:5555",
         solver: str = "OSQP",
         step_size: float = 0.1,
         comm_weight: float = 0.5,
     ):
-        super().__init__(communicator, f_i, a_i, g_i, max_iter, results_prefix)
+        super().__init__(name, f_i, a_i, g_i, max_iter, results_prefix, sever_address)
 
         self._x_i.value = np.zeros(self.n_dim)
         self._x_i_wave = cp.Variable(self.n_dim)
@@ -65,12 +65,7 @@ class DualDecompositionNode(Node, key="dual_decomp"):
             self._a_i @ x_i_wave - self._b_i
         )
 
-        self._communicator.broadcast(local_update)
-        neighbor_updates = self._communicator.gather()
-
-        consensus_error = self._communicator.degree * local_update - sum(
-            neighbor_updates
-        )
+        consensus_error = self.node_handle.laplacian(local_update)
         combined_update = local_update - self._comm_weight * consensus_error
 
         self._mu_i.value = np.maximum(combined_update, 0)

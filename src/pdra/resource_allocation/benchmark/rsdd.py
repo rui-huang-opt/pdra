@@ -2,7 +2,6 @@ import numpy as np
 import cvxpy as cp
 from typing import Callable, Dict
 from numpy.typing import NDArray
-from gossip import Gossip
 from ..resource_allocation import Node
 
 
@@ -21,25 +20,24 @@ class RSDDNode(Node, key="rsdd"):
 
     def __init__(
         self,
-        communicator: Gossip,
+        name: str,
         f_i: Callable[[cp.Variable], cp.Expression],
         a_i: NDArray[np.float64],
         g_i: Callable[[cp.Variable], cp.Expression] | None = None,
         max_iter: int = 1000,
         results_prefix: str = "results",
+        sever_address: str = "localhost:5555",
         solver: str = "OSQP",
         step_size: float = 0.1,
         decay_rate: float = 0.9,
         penalty_factor: float = 1e3,
     ):
-        super().__init__(communicator, f_i, a_i, g_i, max_iter, results_prefix)
+        super().__init__(name, f_i, a_i, g_i, max_iter, results_prefix, sever_address)
 
         self._rho_i = cp.Variable()
         self._mu_i = np.zeros(self.n_ccons)
 
-        self._lambda_ij_dict = {
-            j: np.zeros(self.n_ccons) for j in self._communicator.neighbor_names
-        }
+        self._lambda_ij_dict: Dict[int | str, NDArray[np.float64]] = {}
         self._lambda_ji_dict: Dict[int | str, NDArray[np.float64]] = {}
 
         self._bias_lambda = cp.Parameter(self.n_ccons)
@@ -63,13 +61,16 @@ class RSDDNode(Node, key="rsdd"):
         return cp.Problem(cp.Minimize(cost), constraints)
 
     def perform_iteration(self, k: int, local_problem: cp.Problem):
-        for j in self._communicator.neighbor_names:
-            self._communicator.send(j, self._lambda_ij_dict[j])
-            self._lambda_ji_dict[j] = self._communicator.recv(j)
+        for j in self.node_handle.neighbor_names:
+            lambda_ij = self._lambda_ij_dict.get(j, np.zeros(self.n_ccons))
+            self.node_handle.send(j, lambda_ij)
 
-        self._bias_lambda.value = sum(self._lambda_ij_dict.values()) - sum(
-            self._lambda_ji_dict.values()
-        )
+        for j in self.node_handle.neighbor_names:
+            self._lambda_ji_dict[j] = self.node_handle.recv(j)
+
+        sum_lambda_ij = sum(self._lambda_ij_dict.values())
+        sum_lambda_ji = sum(self._lambda_ji_dict.values())
+        self._bias_lambda.value = sum_lambda_ij - sum_lambda_ji
 
         local_problem.solve(solver=self._solver)
 
@@ -77,10 +78,10 @@ class RSDDNode(Node, key="rsdd"):
 
         gamma_k = self._step_size / ((k + 1) ** self._decay_rate)
 
-        for j in self._communicator.neighbor_names:
-            self._communicator.send(j, self.mu_i)
-            mu_j = self._communicator.recv(j)
+        for j in self.node_handle.neighbor_names:
+            self.node_handle.send(j, self.mu_i)
 
-            self._lambda_ij_dict[j] = self._lambda_ij_dict[j] - gamma_k * (
-                self.mu_i - mu_j
-            )
+        for j in self.node_handle.neighbor_names:
+            mu_j = self.node_handle.recv(j)
+            lambda_ij = self._lambda_ij_dict.get(j, np.zeros(self.n_ccons))
+            self._lambda_ij_dict[j] = lambda_ij - gamma_k * (self.mu_i - mu_j)

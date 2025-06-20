@@ -19,7 +19,7 @@ pip install .
 ## Requirements
 - Python >= 3.10
 - cvxpy>=1.4.3
-- gossip @ git+https://github.com/rui-huang-opt/gossip.git
+- topolink @ git+https://github.com/rui-huang-opt/topolink.git
 - matplotlib, networkx, toml (for visualization and testing)
 
 All dependencies are specified in `pyproject.toml` and will be installed automatically with `pip install .` or `pip install .[test]` for optional testing/visualization features.
