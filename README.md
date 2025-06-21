@@ -1,6 +1,6 @@
 # Private Distributed Resource Allocation Without Constraint Violations
 
-A privacy-preserving distributed optimization library for resource allocation problems with **provable constraint satisfaction guarantees**.
+This repository contains the official experimental code for the paper *Private Distributed Resource Allocation without Constraint Violations*. It provides a privacy-preserving distributed optimization library designed for resource allocation problems, ensuring **provable constraint satisfaction** throughout the optimization process.
 
 ## Installation
 
@@ -15,14 +15,6 @@ git clone https://github.com/rui-huang-opt/pdra.git
 cd pdra
 pip install .
 ```
-
-## Requirements
-- Python >= 3.10
-- cvxpy>=1.4.3
-- topolink @ git+https://github.com/rui-huang-opt/topolink.git
-- matplotlib, networkx, toml (for visualization and testing)
-
-All dependencies are specified in `pyproject.toml` and will be installed automatically with `pip install .` or `pip install .[test]` for optional testing/visualization features.
 
 ## (Optional) Using a Virtual Environment
 
@@ -40,12 +32,125 @@ python -m venv .venv
 
 After activating the environment, proceed with the installation steps above.
 
-## Testing
+## Features
 
-To run the test suite and visualization examples, install the optional dependencies:
-```bash
-pip install .[test]
+- **Truncated Laplace Noise**: Implements privacy-preserving mechanisms using truncated Laplace noise to ensure differential privacy while maintaining constraint satisfaction.
+- **Distributed Resource Allocation**: Supports distributed optimization for resource allocation problems, guaranteeing that constraints are never violated during the process.
+- Easy integration with existing Python workflows.
+
+## Truncated Laplace Noise
+
+This library provides a standalone implementation of the **truncated Laplace noise** distribution. The `TruncatedLaplace` class allows you to sample from a Laplace distribution that is truncated to a specified interval.
+
+### What is the Truncated Laplace Distribution?
+
+The truncated Laplace distribution is a Laplace distribution restricted to a given interval $[\text{low}, \text{high}]$. Unlike the standard Laplace distribution, the truncated version only takes values within $[\text{low}, \text{high}]$—the probability outside this interval is set to zero, and the probability density is renormalized.
+
+Its probability density function (PDF) is:
+
+$$
+f(x) = \frac{1}{Z} \cdot \frac{1}{2\,\text{scale}} \exp\left(-\frac{|x-\text{loc}|}{\text{scale}}\right), \quad x \in [\text{low}, \text{high}]
+$$
+
+where:
+- $\text{loc}$ is the location parameter (mean),
+- $\text{scale}$ is the scale parameter,
+- $Z$ is the normalization constant ensuring the total probability integrates to 1, given by
+    $$
+    Z = \int_{\text{low}}^{\text{high}} \frac{1}{2\,\text{scale}} \exp\left(-\frac{|x-\text{loc}|}{\text{scale}}\right) dx
+    $$
+
+The truncated Laplace distribution is commonly used in differential privacy and related applications, as it allows strict control over the output range while preserving privacy guarantees.
+
+### Example usage:
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from pdra import TruncatedLaplace
+
+low = -2
+high = 1
+loc = 0
+scale = 1
+n_samples = 50000
+n_bins = 50
+n_points = 1000
+
+tl = TruncatedLaplace(low, high, loc, scale)
+
+samples = tl.sample(n_samples)
+
+fig, ax = plt.subplots()
+
+ax.hist(samples, bins=n_bins, density=True)
+
+x = np.linspace(low, high, n_points, dtype=np.float64)
+
+ax.plot(x, tl.pdf(x), "r", lw=2)
+
+ax.set_title("Truncated Laplace Distribution")
+ax.set_xlabel("x")
+ax.set_ylabel("pdf(x)")
+
+plt.show()
 ```
+
+![Truncated Laplace distribution](docs/images/truncated_laplace.png)
+
+## Distributed Resource Allocation
+This library provides tools for solving distributed resource allocation problems where multiple agents collaboratively optimize their local objectives subject to global and local constraints.
+
+The distributed resource allocation optimization problem aims to coordinate multiple agents (or nodes) to optimize their individual objective functions while satisfying both global and local constraints. The standard formulation is:
+
+$$
+\begin{align*}
+\min_{x_1, \ldots, x_N} \quad & \sum_{i=1}^N f_i(x_i) \\
+\text{s.t.} \quad & x_i \in X_i, \quad \forall i=1,\ldots,N \\
+& \sum_{i=1}^N A_i x_i \leq b
+\end{align*}
+$$
+
+where $f_i$ is the local objective function of agent $i$, $X_i$ is its feasible set, and $\sum_{i=1}^N A_i x_i \leq b$ is the global resource constraint.
+This problem commonly arises in scenarios such as energy allocation and communication networks.
+
+### Example: Distributed Quadratic Programming
+
+Suppose $5$ agents collaboratively solve a resource allocation problem where each agent $i$ minimizes a local quadratic cost:
+
+$$
+f_i(x_i) = \frac{1}{2} x_i^\top Q_i x_i + c_i x_i
+$$
+
+subject to no local constraints and a global resource constraint:
+
+$$
+\sum_{i=1}^N A_i x_i \leq b
+$$
+
+With this library, you can set up and solve such problems in a distributed manner.
+For a complete example, please refer to the Jupyter notebooks in [`tests/distributed_qp`](tests/distributed_qp).
+
+### Network Topology with `topolink`
+
+This package leverages [`topolink`](https://github.com/rui-huang-opt/topolink) to easily construct distributed network topologies for multi-agent optimization.
+This package enables the construction of real network topologies across multiple machines or processes, primarily for building undirected graphs.
+
+To set up a network, please refer to the [topolink repository](https://github.com/rui-huang-opt/topolink) for detailed usage and examples.
+
+## Baseline Methods
+
+This package also implements two baseline algorithms for benchmarking purposes:
+
+- **Relaxation and Successive Distributed Decomposition (RSDD)**: Based on [[1]](#references).
+- **Dual Decomposition**: Based on [[2]](#references).
+
+You can use these baselines to compare the performance of the proposed privacy-preserving algorithms. Example usage and benchmarking scripts are provided in the [`tests`](tests) directory.
+
+## Experiments
+
+The experimental Jupyter notebooks are located in the [`exp`](exp) directory. The experiments closely follow the settings and results described in the paper (to be published).
+This section will be updated with detailed instructions and descriptions once the paper is available.
 
 ## References
 
