@@ -9,11 +9,11 @@ This repository contains the official experimental code for the paper *Private D
 pip install git+https://github.com/rui-huang-opt/pdra.git
 ```
 
-### Method 2: Clone repository and install
+### Method 2: Clone repository and install for development
 ```bash
 git clone https://github.com/rui-huang-opt/pdra.git
 cd pdra
-pip install .
+pip install -e .
 ```
 
 ## (Optional) Using a Virtual Environment
