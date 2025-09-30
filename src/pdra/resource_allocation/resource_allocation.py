@@ -80,7 +80,7 @@ class Node(Process, metaclass=ABCMeta):
 
     @cached_property
     def node_handle(self) -> NodeHandle:
-        return NodeHandle(self._name, server_address=self._server_address)
+        return NodeHandle.create(self._name, server_address=self._server_address)
 
     @abstractmethod
     def perform_iteration(self, k: int, local_problem: cp.Problem): ...
