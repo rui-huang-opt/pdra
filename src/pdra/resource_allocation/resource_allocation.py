@@ -2,14 +2,12 @@ import os
 import numpy as np
 import cvxpy as cp
 from abc import ABCMeta, abstractmethod
-from functools import cached_property
 from typing import Callable, Type, Dict, Any
 from numpy.typing import NDArray
-from multiprocessing import Process
 from topolink import NodeHandle
 
 
-class Node(Process, metaclass=ABCMeta):
+class Node(metaclass=ABCMeta):
     _registry: Dict[str, Type["Node"]] = {}
 
     def __init_subclass__(cls, key: str | None = None, **kwargs):
@@ -27,11 +25,11 @@ class Node(Process, metaclass=ABCMeta):
         g_i: Callable[[cp.Variable], cp.Expression] | None = None,
         max_iter: int = 1000,
         results_prefix: str | None = None,
-        sever_address: str = "localhost:5555",
     ):
         super().__init__()
 
         self._name = name
+        self._node_handle = NodeHandle(self._name)
 
         self._f_i = f_i
         self._a_i = a_i
@@ -53,7 +51,24 @@ class Node(Process, metaclass=ABCMeta):
                 "computation_time": np.zeros(self.max_iter),
             }
 
-        self._server_address = sever_address
+    @classmethod
+    def create(
+        cls,
+        algorithm: str,
+        name: str,
+        f_i: Callable[[cp.Variable], cp.Expression],
+        a_i: NDArray[np.float64],
+        g_i: Callable[[cp.Variable], cp.Expression] | None = None,
+        max_iter: int = 1000,
+        results_prefix: str | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> "Node":
+        if algorithm not in Node._registry:
+            raise ValueError(f"Unknown node type: {algorithm}")
+        return Node._registry[algorithm](
+            name, f_i, a_i, g_i, max_iter, results_prefix, *args, **kwargs
+        )
 
     def set_resource(self, b_i: NDArray[np.float64]):
         if b_i.ndim != 1 or b_i.shape[0] != self.n_ccons:
@@ -78,10 +93,6 @@ class Node(Process, metaclass=ABCMeta):
             raise ValueError("The problem may not be solved.")
         return np.asarray(val, dtype=np.float64)
 
-    @cached_property
-    def node_handle(self) -> NodeHandle:
-        return NodeHandle.create(self._name, server_address=self._server_address)
-
     @abstractmethod
     def perform_iteration(self, k: int, local_problem: cp.Problem): ...
 
@@ -97,7 +108,6 @@ class Node(Process, metaclass=ABCMeta):
         )
 
     def run(self):
-        self.node_handle  # Lazy initialization of NodeHandle
         local_problem = self.setup_local_problem()
 
         if self._results_prefix is None:
@@ -110,23 +120,70 @@ class Node(Process, metaclass=ABCMeta):
 
             self.save_results(self._results_prefix)
 
-        del self.node_handle  # Clean up NodeHandle
 
-    @classmethod
-    def create(
-        cls,
-        algorithm: str,
+from .optimizer import GradientMethod
+
+
+class ProposedNode(Node, key="proposed"):
+    """
+    The proposed method in our paper,
+    that iteratively refines a solution by solving subproblems:
+
+    min  f_i(x_i)
+
+    s.t. a_i @ x_i + l_i @ y <= b_i,
+         g_i(x_i) <= 0 (if exists).
+
+    The value of b_i will be set to 0 if the node don't receive the information of the resource.
+    """
+
+    def __init__(
+        self,
         name: str,
         f_i: Callable[[cp.Variable], cp.Expression],
         a_i: NDArray[np.float64],
         g_i: Callable[[cp.Variable], cp.Expression] | None = None,
         max_iter: int = 1000,
-        results_prefix: str | None = None,
-        *args: Any,
-        **kwargs: Any,
-    ) -> "Node":
-        if algorithm not in Node._registry:
-            raise ValueError(f"Unknown node type: {algorithm}")
-        return Node._registry[algorithm](
-            name, f_i, a_i, g_i, max_iter, results_prefix, *args, **kwargs
-        )
+        results_prefix: str = "results",
+        solver: str = "OSQP",
+        method: str = "AGM",
+        step_size: float = 0.1,
+    ):
+        super().__init__(name, f_i, a_i, g_i, max_iter, results_prefix)
+
+        self._y_i: NDArray[np.float64] = np.zeros(self.n_ccons)
+        self._c_i: NDArray[np.float64] = np.empty(self.n_ccons)
+
+        self._li_y = cp.Parameter(self.n_ccons)
+
+        self._solver = solver
+
+        self._update_y_i = GradientMethod.create(method, step_size)
+
+        self._results["c_i_series"] = np.zeros((self.n_ccons, self.max_iter))
+
+    def setup_local_problem(self) -> cp.Problem:
+        cost = self._f_i(self._x_i)
+        constraints: list[cp.Constraint] = [
+            self._a_i @ self._x_i + self._li_y <= self._b_i
+        ]
+
+        if self._g_i is not None:
+            constraints.append(self._g_i(self._x_i) <= 0)
+
+        return cp.Problem(cp.Minimize(cost), constraints)
+
+    def record_results(self, k: int, local_problem: cp.Problem):
+        super().record_results(k, local_problem)
+        self._results["c_i_series"][:, k] = local_problem.constraints[0].dual_value
+
+    def perform_iteration(self, k: int, local_problem: cp.Problem):
+        self._li_y.value = self._node_handle.laplacian(self._y_i)
+
+        local_problem.solve(solver=self._solver)
+
+        self._c_i = local_problem.constraints[0].dual_value  # type: ignore
+
+        li_c = self._node_handle.laplacian(self._c_i)
+
+        self._y_i = self._update_y_i(self._y_i, li_c)
