@@ -1,6 +1,6 @@
 # Private Distributed Resource Allocation Without Constraint Violations
 
-This repository contains the official experimental code for the paper *Private Distributed Resource Allocation without Constraint Violations*. It provides a privacy-preserving distributed optimization library designed for resource allocation problems, ensuring **provable constraint satisfaction** throughout the optimization process.
+This repository contains the official experimental code for the paper [*Private Distributed Resource Allocation without Constraint Violations*](https://ieeexplore.ieee.org/abstract/document/11120444). It provides a privacy-preserving distributed optimization library designed for resource allocation problems, ensuring **provable constraint satisfaction** throughout the optimization process.
 
 ## Installation
 
