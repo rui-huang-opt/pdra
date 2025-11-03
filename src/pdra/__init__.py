@@ -1,4 +1,4 @@
-from .resource_allocation import Node
-from .truncated_laplace import TruncatedLaplace
+from .allocator import *
+from .truncated_laplace import *
 
-__all__ = ["Node", "TruncatedLaplace"]
+__all__ = ["ResourceAllocator", "TruncatedLaplace"]

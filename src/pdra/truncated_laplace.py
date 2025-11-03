@@ -27,9 +27,9 @@ class TruncatedLaplace(object):
         scale: float,
     ):
         if low > high:
-            pass
+            raise ValueError("The value of 'low' must be less than or equal to 'high'.")
         if scale <= 0:
-            pass
+            raise ValueError("The value of 'scale' must be positive.")
 
         self._low = low
         self._high = high
