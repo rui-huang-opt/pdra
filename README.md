@@ -1,6 +1,6 @@
 # Private Distributed Resource Allocation Without Constraint Violations
 
-This repository contains the official experimental code for the paper [*Private Distributed Resource Allocation without Constraint Violations*](https://ieeexplore.ieee.org/abstract/document/11120444). It provides a privacy-preserving distributed optimization library designed for resource allocation problems, ensuring **provable constraint satisfaction** throughout the optimization process.
+This repository contains the experimental code for the paper [*Private Distributed Resource Allocation without Constraint Violations*](https://ieeexplore.ieee.org/abstract/document/11120444). It provides a privacy-preserving distributed optimization library designed for resource allocation problems, ensuring **provable constraint satisfaction** throughout the optimization process.
 
 ## Installation
 
@@ -31,12 +31,6 @@ python -m venv .venv
 ```
 
 After activating the environment, proceed with the installation steps above.
-
-## Features
-
-- **Truncated Laplace Noise**: Implements privacy-preserving mechanisms using truncated Laplace noise to ensure differential privacy while maintaining constraint satisfaction.
-- **Distributed Resource Allocation**: Supports distributed optimization for resource allocation problems, guaranteeing that constraints are never violated during the process.
-- Easy integration with existing Python workflows.
 
 ## Truncated Laplace Noise
 
@@ -129,7 +123,7 @@ $$
 $$
 
 With this library, you can set up and solve such problems in a distributed manner.
-For a complete example, please refer to the Jupyter notebooks in [`tests/distributed_qp`](tests/distributed_qp).
+For a complete example, please refer to the Jupyter notebooks in [`examples/distributed_qp`](examples/distributed_qp).
 
 ### Network Topology with `topolink`
 
@@ -147,12 +141,15 @@ This package also implements two baseline algorithms for benchmarking purposes:
 
 You can use these baselines to compare the performance of the proposed privacy-preserving algorithms. Example usage and benchmarking scripts are provided in the [`tests`](tests) directory.
 
-## Experiments
+## Baseline Methods
 
-The experimental Jupyter notebooks are located in the [`exp`](exp) directory. The experiments closely follow the settings and results described in the paper (to be published).
-This section will be updated with detailed instructions and descriptions once the paper is available.
+We consider two baseline methods for comparison:
 
-## References
+1. **RSDD (Relaxation and Successive Distributed Decomposition)** [1].
+
+2. **Consensus-Based Dual Decomposition with Primal Recovery** [2]
+
+**References**  
 
 [1] [Notarnicola, I., & Notarstefano, G. (2019). Constraint-coupled distributed optimization: A relaxation and duality approach. *IEEE Transactions on Control of Network Systems*, 7(1), 483-492.](https://ieeexplore.ieee.org/abstract/document/8746216)
 
