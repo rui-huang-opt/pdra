@@ -12,6 +12,7 @@ authors = [{ name = "Rui Huang", email = "R.Huang@lboro.ac.uk" }]
 dependencies = [
     "cvxpy[GLPK]>=1.4.3",
     "topolink @ git+https://github.com/rui-huang-opt/topolink.git@0.1.6",
+    "pandas>=2.2.3",
 ]
 
 [project.optional-dependencies]

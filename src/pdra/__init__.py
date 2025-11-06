@@ -1,4 +1,3 @@
-from .allocator import *
-from .truncated_laplace import *
+from .core import *
 
-__all__ = ["ResourceAllocator", "TruncatedLaplace"]
+__all__ = ["SafeDRA", "TruncatedLaplace"]
