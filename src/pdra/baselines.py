@@ -2,7 +2,7 @@ from typing import Callable, Dict
 from numpy import float64, zeros, maximum, asarray
 from cvxpy import Variable, Expression, Problem, Constraint, Minimize, Parameter
 from numpy.typing import NDArray
-from topolink import NodeHandle
+from .network import NetworkOps
 
 
 class RSDD:
@@ -20,17 +20,16 @@ class RSDD:
 
     def __init__(
         self,
-        name: str,
+        ops: NetworkOps,
         f_i: Callable[[Expression], Expression],
         a_i: NDArray[float64],
         g_i: Callable[[Expression], Expression] | None = None,
         b_i: NDArray[float64] | None = None,
         step_size: float = 0.1,
         decay_rate: float = 0.9,
-        penalty_factor: float = 1e3,
+        penalty: float = 1e3,
     ):
-        self._name = name
-        self._node_handle = NodeHandle(self._name)
+        self._ops = ops
 
         self._f_i = f_i
         self._a_i = a_i
@@ -45,17 +44,17 @@ class RSDD:
         self._mu_i = zeros(self._n_ccons)
 
         self._lambda_ij_dict: Dict[str, NDArray[float64]] = {
-            j: zeros(self._n_ccons) for j in self._node_handle.neighbor_names
+            j: zeros(self._n_ccons) for j in self._ops.neighbor_names
         }
         self._lambda_ji_dict: Dict[str, NDArray[float64]] = {
-            j: zeros(self._n_ccons) for j in self._node_handle.neighbor_names
+            j: zeros(self._n_ccons) for j in self._ops.neighbor_names
         }
 
         self._lambda_residual = Parameter(self._n_ccons)
 
         self._step_size = step_size
         self._decay_rate = decay_rate
-        self._penalty_factor = penalty_factor
+        self._penalty = penalty
 
         self._local_problem = self._setup_local_problem()
 
@@ -87,7 +86,7 @@ class RSDD:
         return asarray(value, dtype=float64)
 
     def _setup_local_problem(self) -> Problem:
-        cost = self._f_i(self._x_i) + self._penalty_factor * self._rho_i
+        cost = self._f_i(self._x_i) + self._penalty * self._rho_i
         constraints: list[Constraint] = [
             self._a_i @ self._x_i - self._b_i + self._lambda_residual <= self._rho_i,
             self._rho_i >= 0,
@@ -99,8 +98,8 @@ class RSDD:
         return Problem(Minimize(cost), constraints)
 
     def step(self, k: int, solver: str = "OSQP"):
-        self._node_handle.send_each(self._lambda_ij_dict)
-        self._lambda_ji_dict.update(self._node_handle.gather())
+        self._ops.send_each(self._lambda_ij_dict)
+        self._lambda_ji_dict.update(self._ops.gather())
 
         sum_lambda_ij = sum(self._lambda_ij_dict.values())
         sum_lambda_ji = sum(self._lambda_ji_dict.values())
@@ -111,14 +110,11 @@ class RSDD:
 
         gamma_k = self._step_size / ((k + 1) ** self._decay_rate)
 
-        self._node_handle.broadcast(mu_i)
-        neighbor_mus = self._node_handle.gather()
+        self._ops.broadcast(mu_i)
+        neighbor_mus = self._ops.gather()
 
         for j, mu_j in neighbor_mus.items():
             self._lambda_ij_dict[j] -= gamma_k * (mu_i - mu_j)
-
-
-from cvxpy import Constant
 
 
 class DualDecomposition:
@@ -134,15 +130,14 @@ class DualDecomposition:
 
     def __init__(
         self,
-        name: str,
+        ops: NetworkOps,
         f_i: Callable[[Expression], Expression],
         a_i: NDArray[float64],
         g_i: Callable[[Expression], Expression] | None = None,
         b_i: NDArray[float64] | None = None,
         step_size: float = 0.1,
     ):
-        self._name = name
-        self._node_handle = NodeHandle(self._name)
+        self._ops = ops
 
         self._f_i = f_i
         self._a_i = a_i
@@ -201,5 +196,5 @@ class DualDecomposition:
         subgrad = self._a_i @ x_i_wave - self._b_i
         raw_update = mu_i + self._step_size * subgrad
 
-        combined_update = self._node_handle.weighted_mix(raw_update)
+        combined_update = self._ops.weighted_mix(raw_update)
         self._mu_i.value = maximum(combined_update, 0)
