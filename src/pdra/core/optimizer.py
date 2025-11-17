@@ -9,10 +9,10 @@ class GradientDescent(metaclass=ABCMeta):
 
     def __init_subclass__(cls, key: str | None = None, **kwargs):
         super().__init_subclass__(**kwargs)
-        _key = key or cls.__name__
-        if _key in GradientDescent._registry:
-            raise ValueError(f"Gradient method '{_key}' is already registered.")
-        GradientDescent._registry[_key] = cls
+        key_ = key or cls.__name__
+        if key_ in cls._registry:
+            raise ValueError(f"Gradient method '{key_}' is already registered.")
+        cls._registry[key_] = cls
 
     def __init__(self, step_size: float):
         self._step_size = step_size
