@@ -52,8 +52,9 @@ where:
 - $\text{loc}$ is the location parameter (mean),
 - $\text{scale}$ is the scale parameter,
 - $Z$ is the normalization constant ensuring the total probability integrates to 1, given by
+
 $$
-Z = \int_{\text{low}}^{\text{high}} \frac{1}{2 \text{scale}} \exp\left(-\frac{|x-\text{loc}|}{\text{scale}}\right) dx
+Z = \frac{1}{2 \text{scale}} \exp\left(-\frac{|x-\text{loc}|}{\text{scale}}\right) dx
 $$
 
 The truncated Laplace distribution is commonly used in differential privacy and related applications, as it allows strict control over the output range while preserving privacy guarantees.
