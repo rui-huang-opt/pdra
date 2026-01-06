@@ -11,12 +11,11 @@ authors = [{ name = "Rui Huang", email = "R.Huang@lboro.ac.uk" }]
 
 dependencies = [
     "cvxpy[GLPK]>=1.4.3",
-    "topolink @ git+https://github.com/rui-huang-opt/topolink.git@0.1.10",
+    "topolink @ git+https://github.com/rui-huang-opt/topolink.git@0.2.0",
 ]
 
 [project.optional-dependencies]
-test = ["matplotlib>=3.10.3", "networkx>=3.4.2"]
-exp = ["matplotlib>=3.10.3", "networkx>=3.4.2"]
+vis = ["matplotlib>=3.10.3"]
 vsc = ["ipykernel>=6.29.5"]
 
 [tool.setuptools.packages.find]

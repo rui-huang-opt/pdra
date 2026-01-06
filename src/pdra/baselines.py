@@ -46,9 +46,6 @@ class RSDD:
         self._lambda_ij_dict: Dict[str, NDArray[float64]] = {
             j: zeros(self._n_ccons) for j in self._ops.neighbor_names
         }
-        self._lambda_ji_dict: Dict[str, NDArray[float64]] = {
-            j: zeros(self._n_ccons) for j in self._ops.neighbor_names
-        }
 
         self._lambda_residual = Parameter(self._n_ccons)
 
@@ -98,11 +95,10 @@ class RSDD:
         return Problem(Minimize(cost), constraints)
 
     def step(self, k: int, solver: str = "OSQP"):
-        self._ops.send_each(self._lambda_ij_dict)
-        self._lambda_ji_dict.update(self._ops.gather())
+        lambda_ji_dict = self._ops.exchange_map(self._lambda_ij_dict)
 
         sum_lambda_ij = sum(self._lambda_ij_dict.values())
-        sum_lambda_ji = sum(self._lambda_ji_dict.values())
+        sum_lambda_ji = sum(lambda_ji_dict.values())
         self._lambda_residual.value = sum_lambda_ij - sum_lambda_ji
 
         self._local_problem.solve(solver=solver)
@@ -110,10 +106,9 @@ class RSDD:
 
         gamma_k = self._step_size / ((k + 1) ** self._decay_rate)
 
-        self._ops.broadcast(mu_i)
-        neighbor_mus = self._ops.gather()
+        mu_js = self._ops.exchange(mu_i)
 
-        for j, mu_j in neighbor_mus.items():
+        for j, mu_j in mu_js.items():
             self._lambda_ij_dict[j] -= gamma_k * (mu_i - mu_j)
 
 
