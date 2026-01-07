@@ -15,31 +15,12 @@ class NetworkOps(Protocol):
 
     Attributes
     ----------
-    name : str
-        Name of the node.
-
-    num_neighbors : int
-        Number of neighbor nodes.
-
-    neighbor_names : KeysView[str]
-        Names of all neighbor nodes.
-
-    neighbor_weights : dict[str, float]
-        Weights associated with each neighbor node.
-        If no weights were specified during graph creation, 1.0 is used for all neighbors.
+    neighbors : KeysView[str]
+        A view of the names of neighboring nodes.
     """
 
     @property
-    def name(self) -> str: ...
-
-    @property
-    def num_neighbors(self) -> int: ...
-
-    @property
-    def neighbor_names(self) -> KeysView[str]: ...
-
-    @property
-    def neighbor_weights(self) -> dict[str, float]: ...
+    def neighbors(self) -> KeysView[str]: ...
 
     def exchange_map(
         self, state_map: dict[str, NDArray[float64]]

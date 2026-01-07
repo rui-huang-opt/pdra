@@ -44,7 +44,7 @@ class RSDD:
         self._mu_i = zeros(self._n_ccons)
 
         self._lambda_ij_dict: Dict[str, NDArray[float64]] = {
-            j: zeros(self._n_ccons) for j in self._ops.neighbor_names
+            j: zeros(self._n_ccons) for j in self._ops.neighbors
         }
 
         self._lambda_residual = Parameter(self._n_ccons)
