@@ -95,7 +95,7 @@ class RSDD:
         return Problem(Minimize(cost), constraints)
 
     def step(self, k: int, solver: str = "OSQP"):
-        lambda_ji_dict = self._ops.exchange_map(self._lambda_ij_dict)
+        lambda_ji_dict = self._ops.neighborwise_exchange(self._lambda_ij_dict)
 
         sum_lambda_ij = sum(self._lambda_ij_dict.values())
         sum_lambda_ji = sum(lambda_ji_dict.values())

@@ -22,7 +22,7 @@ class NetworkOps(Protocol):
     @property
     def neighbors(self) -> KeysView[str]: ...
 
-    def exchange_map(
+    def neighborwise_exchange(
         self, state_map: dict[str, NDArray[float64]]
     ) -> dict[str, NDArray[float64]]:
         """
