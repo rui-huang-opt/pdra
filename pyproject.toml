@@ -15,8 +15,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-examples = ["matplotlib>=3.10.3", "networkx>=3.4.2"]
 notebook = ["ipykernel>=6.29.5"]
+examples = [
+    "matplotlib>=3.10.3",
+    "networkx>=3.4.2",
+    "ray[default]>=2.53.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
