@@ -2,7 +2,7 @@ from typing import Callable, Dict
 from numpy import float64, zeros, maximum, asarray
 from cvxpy import Variable, Expression, Problem, Constraint, Minimize, Parameter
 from numpy.typing import NDArray
-from .network import NetworkOps
+from .network import Network
 
 
 class RSDD:
@@ -20,7 +20,7 @@ class RSDD:
 
     def __init__(
         self,
-        ops: NetworkOps,
+        network: Network,
         f_i: Callable[[Expression], Expression],
         a_i: NDArray[float64],
         g_i: Callable[[Expression], Expression] | None = None,
@@ -29,7 +29,7 @@ class RSDD:
         decay_rate: float = 0.9,
         penalty: float = 1e3,
     ):
-        self._ops = ops
+        self._network = network
 
         self._f_i = f_i
         self._a_i = a_i
@@ -44,7 +44,7 @@ class RSDD:
         self._mu_i = zeros(self._n_ccons)
 
         self._lambda_ij_dict: Dict[str, NDArray[float64]] = {
-            j: zeros(self._n_ccons) for j in self._ops.neighbors
+            j: zeros(self._n_ccons) for j in self._network.neighbors
         }
 
         self._lambda_residual = Parameter(self._n_ccons)
@@ -95,7 +95,7 @@ class RSDD:
         return Problem(Minimize(cost), constraints)
 
     def step(self, k: int, solver: str = "OSQP"):
-        lambda_ji_dict = self._ops.neighborwise_exchange(self._lambda_ij_dict)
+        lambda_ji_dict = self._network.neighborwise_exchange(self._lambda_ij_dict)
 
         sum_lambda_ij = sum(self._lambda_ij_dict.values())
         sum_lambda_ji = sum(lambda_ji_dict.values())
@@ -106,7 +106,7 @@ class RSDD:
 
         gamma_k = self._step_size / ((k + 1) ** self._decay_rate)
 
-        mu_js = self._ops.exchange(mu_i)
+        mu_js = self._network.exchange(mu_i)
 
         for j, mu_j in mu_js.items():
             self._lambda_ij_dict[j] -= gamma_k * (mu_i - mu_j)
@@ -125,14 +125,14 @@ class DualDecomposition:
 
     def __init__(
         self,
-        ops: NetworkOps,
+        network: Network,
         f_i: Callable[[Expression], Expression],
         a_i: NDArray[float64],
         g_i: Callable[[Expression], Expression] | None = None,
         b_i: NDArray[float64] | None = None,
         step_size: float = 0.1,
     ):
-        self._ops = ops
+        self._network = network
 
         self._f_i = f_i
         self._a_i = a_i
@@ -191,5 +191,5 @@ class DualDecomposition:
         subgrad = self._a_i @ x_i_wave - self._b_i
         raw_update = mu_i + self._step_size * subgrad
 
-        combined_update = self._ops.weighted_mix(raw_update)
+        combined_update = self._network.weighted_mix(raw_update)
         self._mu_i.value = maximum(combined_update, 0)

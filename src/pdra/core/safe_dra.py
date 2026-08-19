@@ -3,13 +3,13 @@ from numpy import float64, zeros, asarray
 from cvxpy import Parameter, Variable, Expression, Problem, Constraint, Minimize
 from numpy.typing import NDArray
 from .optimizer import GradientDescent
-from ..network import NetworkOps
+from ..network import Network
 
 
 class SafeDRA:
     def __init__(
         self,
-        ops: NetworkOps,
+        network: Network,
         f_i: Callable[[Expression], Expression],
         a_i: NDArray[float64],
         g_i: Callable[[Expression], Expression] | None = None,
@@ -19,7 +19,7 @@ class SafeDRA:
     ):
         super().__init__()
 
-        self._ops = ops
+        self._network = network
 
         self._f_i = f_i
         self._a_i = a_i
@@ -74,10 +74,10 @@ class SafeDRA:
         return Problem(Minimize(cost), constraints)
 
     def step(self, k: int, solver: str = "OSQP"):
-        self._li_y.value = self._ops.laplacian(self._y_i)
+        self._li_y.value = self._network.laplacian(self._y_i)
 
         self._local_problem.solve(solver=solver)
 
-        li_c = self._ops.laplacian(self._c_i)
+        li_c = self._network.laplacian(self._c_i)
 
         self._y_i = self._optimizer.step(self._y_i, li_c, k)
