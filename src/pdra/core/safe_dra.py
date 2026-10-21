@@ -1,9 +1,12 @@
 from typing import Callable
+
 from numpy import float64, zeros, asarray
 from cvxpy import Parameter, Variable, Expression, Problem, Constraint, Minimize
 from numpy.typing import NDArray
+
+from conops import Network
+
 from .optimizer import GradientDescent
-from ..network import Network
 
 
 class SafeDRA:
@@ -74,10 +77,10 @@ class SafeDRA:
         return Problem(Minimize(cost), constraints)
 
     def step(self, k: int, solver: str = "OSQP"):
-        self._li_y.value = self._network.laplacian(self._y_i)
+        self._li_y.value = self._network.laplacian(self._y_i, key=(k, "li_y"))
 
         self._local_problem.solve(solver=solver)
 
-        li_c = self._network.laplacian(self._c_i)
+        li_c = self._network.laplacian(self._c_i, key=(k, "li_c"))
 
         self._y_i = self._optimizer.step(self._y_i, li_c, k)

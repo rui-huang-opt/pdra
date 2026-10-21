@@ -1,8 +1,10 @@
 from typing import Callable, Dict
+
 from numpy import float64, zeros, maximum, asarray
 from cvxpy import Variable, Expression, Problem, Constraint, Minimize, Parameter
 from numpy.typing import NDArray
-from .network import Network
+
+from conops import LiteNetwork, Network
 
 
 class RSDD:
@@ -16,11 +18,15 @@ class RSDD:
             g_i(x_i) <= 0 (if exists).
 
     The value of b_i will be set to 0 if the node don't receive the information of the resource.
+
+    Note:
+        This implementation currently requires LiteNetwork, as the Rust-backed
+        Network does not yet support neighborwise_exchange().
     """
 
     def __init__(
         self,
-        network: Network,
+        network: LiteNetwork,
         f_i: Callable[[Expression], Expression],
         a_i: NDArray[float64],
         g_i: Callable[[Expression], Expression] | None = None,
@@ -191,5 +197,5 @@ class DualDecomposition:
         subgrad = self._a_i @ x_i_wave - self._b_i
         raw_update = mu_i + self._step_size * subgrad
 
-        combined_update = self._network.weighted_mix(raw_update)
+        combined_update = self._network.weighted_mix(raw_update, key=k)
         self._mu_i.value = maximum(combined_update, 0)
