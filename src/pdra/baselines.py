@@ -4,7 +4,7 @@ from numpy import float64, zeros, maximum, asarray
 from cvxpy import Variable, Expression, Problem, Constraint, Minimize, Parameter
 from numpy.typing import NDArray
 
-from conops import LiteNetwork, Network
+from conops import Network
 
 
 class RSDD:
@@ -26,7 +26,7 @@ class RSDD:
 
     def __init__(
         self,
-        network: LiteNetwork,
+        network: Network,
         f_i: Callable[[Expression], Expression],
         a_i: NDArray[float64],
         g_i: Callable[[Expression], Expression] | None = None,
@@ -101,7 +101,10 @@ class RSDD:
         return Problem(Minimize(cost), constraints)
 
     def step(self, k: int, solver: str = "OSQP"):
-        lambda_ji_dict = self._network.neighborwise_exchange(self._lambda_ij_dict)
+        lambda_ji_dict = self._network.neighborwise_exchange(
+            self._lambda_ij_dict,
+            key=(k, "lambda_ij"),
+        )
 
         sum_lambda_ij = sum(self._lambda_ij_dict.values())
         sum_lambda_ji = sum(lambda_ji_dict.values())
@@ -112,7 +115,7 @@ class RSDD:
 
         gamma_k = self._step_size / ((k + 1) ** self._decay_rate)
 
-        mu_js = self._network.exchange(mu_i)
+        mu_js = self._network.exchange(mu_i, key=(k, "mu_i"))
 
         for j, mu_j in mu_js.items():
             self._lambda_ij_dict[j] -= gamma_k * (mu_i - mu_j)
