@@ -11,7 +11,7 @@ authors = [{ name = "Rui Huang", email = "R.Huang@lboro.ac.uk" }]
 
 dependencies = [
     "cvxpy[GLPK]>=1.4.3",
-    "conops @ git+https://github.com/rui-huang-opt/conops.git@0.5.1",
+    "conops @ git+https://github.com/rui-huang-opt/conops.git@0.5.2",
 ]
 
 [project.optional-dependencies]

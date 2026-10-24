@@ -104,6 +104,7 @@ class RSDD:
         lambda_ji_dict = self._network.neighborwise_exchange(
             self._lambda_ij_dict,
             key=(k, "lambda_ij"),
+            copy=False,
         )
 
         sum_lambda_ij = sum(self._lambda_ij_dict.values())
